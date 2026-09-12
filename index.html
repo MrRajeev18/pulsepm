@@ -1,0 +1,1876 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PulsePM — Unified Project Management</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app" class="app-root">
+
+    <!-- ========================================================= -->
+    <!-- 1. AUTHENTICATION VIEW                                   -->
+    <!-- ========================================================= -->
+    <section id="auth-view" class="view auth-container">
+      <div class="auth-card">
+        <div class="auth-header">
+          <div class="brand-logo">
+            <span class="logo-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </span>
+            <span class="logo-text">Pulse<span>PM</span></span>
+          </div>
+          <h2>Welcome to PulsePM</h2>
+          <p class="auth-subtitle">Collaborate, manage projects, track pending tasks, and invite your team seamlessly.</p>
+        </div>
+
+        <!-- AUTH TABS -->
+        <div class="auth-tabs" role="tablist">
+          <button class="auth-tab-btn active" data-auth-tab="google" role="tab" aria-selected="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.08 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/></svg>
+            Google Account
+          </button>
+          <button class="auth-tab-btn" data-auth-tab="gmail" role="tab" aria-selected="false">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            Email & Password
+          </button>
+        </div>
+
+        <!-- TAB CONTENT: GOOGLE ACCOUNT -->
+        <div id="auth-tab-content-google" class="auth-tab-panel active">
+          <div class="google-auth-box">
+            <div class="google-logo-big">
+              <svg width="48" height="48" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
+            </div>
+            <h3 style="margin: 12px 0 4px 0; font-size: 1.1rem;">Sign in with Google</h3>
+            <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 20px;">Use your personal or corporate Google account to access your workspaces.</p>
+            <button type="button" class="btn btn-google btn-block" onclick="window.App.handleGoogleLogin();">
+              <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
+              <span>Continue with Google</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB CONTENT: EMAIL & PASSWORD -->
+        <div id="auth-tab-content-gmail" class="auth-tab-panel">
+          <form id="form-login-gmail" onsubmit="event.preventDefault(); window.App.handleGmailLogin();">
+            <div class="form-group">
+              <label for="gmail-input">Email Address</label>
+              <div class="input-with-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <input type="email" id="gmail-input" placeholder="you@company.com" required autocomplete="email">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="gmail-password">Password</label>
+              <div class="input-with-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <input type="password" id="gmail-password" placeholder="Enter your password" required autocomplete="current-password">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">
+              <span>Sign In / Register with Email</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- 2. MAIN APP CONTAINER (Logged In)                        -->
+    <!-- ========================================================= -->
+    <div id="main-app" class="main-app" style="display: none;">
+
+      <!-- TOP NAVIGATION BAR -->
+      <header class="app-header">
+        <div class="header-left">
+          <div class="brand-logo" onclick="window.App.navigateToHome();" style="cursor: pointer;">
+            <span class="logo-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </span>
+            <span class="logo-text">Pulse<span>PM</span></span>
+          </div>
+          <span class="workspace-pill" id="workspace-status-pill" title="Workspace Status: Online & Connected">
+            <span id="workspace-status-dot" class="status-dot live"></span>
+            <span id="workspace-status-text">Global Workspace</span>
+          </span>
+        </div>
+
+        <div class="header-center">
+          <div class="search-bar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="global-search" placeholder="Search projects, tasks, or members..." oninput="window.App.handleGlobalSearch(this.value)">
+          </div>
+        </div>
+
+        <div class="header-right">
+          <!-- QUICK ACTION BUTTONS -->
+          <button class="btn btn-secondary btn-sm" onclick="window.App.openJoinWithCodeModal();" title="Join project with code">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span>Join with Code</span>
+          </button>
+
+          <button class="btn btn-primary btn-sm" onclick="window.App.openCreateProjectModal();">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Create Project</span>
+          </button>
+
+          <!-- NOTIFICATION BELL -->
+          <div class="notif-bell-container">
+            <button id="notif-bell-btn" class="notif-bell-btn" onclick="window.App.toggleNotificationDrawer();" title="Notifications" aria-label="Open notifications">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              <span id="notif-badge" class="notif-badge" style="display:none;">0</span>
+            </button>
+          </div>
+
+          <!-- TOP RIGHT CORNER TOGGLE BUTTON -->
+          <div class="profile-toggle-container">
+            <button id="profile-toggle-btn" class="profile-toggle-btn" onclick="window.App.toggleProfileMenu();" aria-expanded="false" title="User Menu & Profile">
+              <div class="avatar-badge" id="nav-user-avatar">AM</div>
+              <div class="user-brief">
+                <span class="user-brief-name" id="nav-user-name">Alex Morgan</span>
+              </div>
+              <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+
+            <!-- TOGGLE DROPDOWN MENU -->
+            <div id="profile-dropdown" class="profile-dropdown">
+              <div class="dropdown-header">
+                <div class="avatar-large" id="dropdown-user-avatar">--</div>
+                <div class="dropdown-user-info">
+                  <strong id="dropdown-user-name">Alex Morgan</strong>
+                  <span id="dropdown-user-email">--</span>
+                  <span class="unified-tag">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+                    Unified Account Active
+                  </span>
+                </div>
+              </div>
+
+              <div class="dropdown-divider"></div>
+
+              <ul class="dropdown-menu-list">
+                <li>
+                  <button class="dropdown-item" onclick="window.App.openProfileModal();">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <span>Profile & Linked Accounts</span>
+                  </button>
+                </li>
+                <li>
+                  <button class="dropdown-item" onclick="window.App.openSettingsModal();">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    <span>Settings & Appearance</span>
+                  </button>
+                </li>
+                <li>
+                  <button class="dropdown-item" onclick="window.App.scrollToSection('project-groups-section');">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    <span>Projects</span>
+                  </button>
+                </li>
+                <li>
+                  <button class="dropdown-item" onclick="window.App.scrollToSection('pending-tasks-section');">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    <span>Tasks (<span id="menu-pending-count">0</span> Pending)</span>
+                  </button>
+                </li>
+                <li>
+                  <button class="dropdown-item highlight" onclick="window.App.openCreateProjectModal();">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <span>Create Project</span>
+                  </button>
+                </li>
+              </ul>
+
+              <div class="dropdown-divider"></div>
+
+              <div class="dropdown-footer">
+                <button class="dropdown-item logout-btn" onclick="window.App.handleLogout();">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                  <span>Log Out</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- ========================================================= -->
+      <!-- 2A. HOME / DASHBOARD VIEW                                 -->
+      <!-- ========================================================= -->
+      <main id="home-view" class="view main-content-container">
+
+        <!-- WELCOME BANNER -->
+        <div class="welcome-banner">
+          <div class="welcome-text">
+            <h1>Hello, <span id="welcome-user-name">Alex</span> 👋</h1>
+            <p>Here's what is happening across your projects and pending tasks today.</p>
+          </div>
+          <div class="quick-stats-row">
+            <div class="stat-card">
+              <span class="stat-num" id="stat-total-projects">0</span>
+              <span class="stat-label">Project Groups</span>
+            </div>
+            <div class="stat-card highlight">
+              <span class="stat-num" id="stat-pending-tasks">0</span>
+              <span class="stat-label">Pending Tasks</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-num" id="stat-completed-tasks">0</span>
+              <span class="stat-label">Completed Tasks</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-num" id="stat-team-collaborators">0</span>
+              <span class="stat-label">Collaborators</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION: PENDING TASKS -->
+        <section id="pending-tasks-section" class="content-section">
+          <div class="section-header">
+            <div class="section-title-wrapper">
+              <div class="section-icon pending-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <div>
+                <h2>My Pending Tasks</h2>
+                <p class="section-desc">Tasks currently waiting on you across all active project groups</p>
+              </div>
+            </div>
+            <div class="section-actions">
+              <div class="filter-pills" id="task-filter-pills">
+                <button class="filter-pill active" onclick="window.App.filterPendingTasks('all', this)">All Pending</button>
+                <button class="filter-pill" onclick="window.App.filterPendingTasks('high', this)">High Priority</button>
+                <button class="filter-pill" onclick="window.App.filterPendingTasks('urgent', this)">Urgent</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="pending-tasks-container" class="pending-tasks-list">
+            <!-- Rendered by JavaScript -->
+          </div>
+        </section>
+
+        <!-- SECTION: PROJECT GROUPS -->
+        <section id="project-groups-section" class="content-section">
+          <div class="section-header">
+            <div class="section-title-wrapper">
+              <div class="section-icon project-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <div>
+                <h2>Project Groups</h2>
+                <p class="section-desc">Select a project group to inspect overview, manage tasks, and join group chats</p>
+              </div>
+            </div>
+            <div class="section-actions">
+              <div class="filter-pills" id="group-filter-pills">
+                <button class="filter-pill active" onclick="window.App.filterProjectGroups('all', this)">All Groups</button>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="window.App.openCreateProjectModal();">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>New Project</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="project-groups-grid" class="project-grid">
+            <!-- Rendered by JavaScript -->
+          </div>
+        </section>
+
+      </main>
+
+      <!-- ========================================================= -->
+      <!-- 2B. PROJECT DETAIL PANEL                                  -->
+      <!-- ========================================================= -->
+      <main id="project-detail-view" class="view project-detail-container" style="display: none;">
+
+        <!-- PROJECT HEADER BAR -->
+        <div class="project-detail-header">
+          <div class="header-breadcrumb">
+            <button class="btn btn-ghost btn-sm back-btn" onclick="window.App.navigateToHome();">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+              <span>Back to Home</span>
+            </button>
+            <span class="breadcrumb-separator">/</span>
+            <span class="project-group-badge" id="detail-project-group">Engineering</span>
+          </div>
+
+          <div class="project-main-meta">
+            <div class="meta-left">
+              <h1 id="detail-project-name">Project Title</h1>
+              <p id="detail-project-desc">Project description goes here.</p>
+              <div class="project-dates-badge">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span>Timeline: <strong id="detail-project-dates">Sep 1, 2026 - Oct 15, 2026</strong></span>
+                <span class="badge badge-deadline" id="detail-deadline-pill">24 days remaining</span>
+                <span class="badge badge-policy" id="detail-assignment-policy-badge">who can Assign: Anyone</span>
+              </div>
+            </div>
+
+            <div class="meta-right">
+              <button class="btn btn-secondary btn-header-action" onclick="window.App.openInviteModal();" title="Invite new members to project">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                <span>Invite Member</span>
+              </button>
+              <button class="btn btn-primary btn-header-action" onclick="window.App.openCreateTaskModal();" title="Create a new task">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Add Task</span>
+              </button>
+              <div id="detail-dynamic-actions" class="detail-dynamic-actions"></div>
+            </div>
+          </div>
+
+          <!-- PROJECT TABS -->
+          <div class="project-tabs-nav" role="tablist">
+            <button class="project-tab-btn active" data-project-tab="overview" onclick="window.App.switchProjectTab('overview');">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              <span>Overview</span>
+            </button>
+            <button class="project-tab-btn" data-project-tab="mytasks" onclick="window.App.switchProjectTab('mytasks');">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span>My Tasks</span>
+              <span class="tab-badge" id="tab-mytasks-count">0</span>
+            </button>
+            <button class="project-tab-btn" data-project-tab="tasks" onclick="window.App.switchProjectTab('tasks');">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              <span>All Tasks</span>
+              <span class="tab-badge" id="tab-tasks-count">0</span>
+            </button>
+            <button class="project-tab-btn" data-project-tab="team" onclick="window.App.switchProjectTab('team');">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span>Team</span>
+              <span class="tab-badge" id="tab-team-count">0</span>
+            </button>
+            <button class="project-tab-btn" data-project-tab="chats" onclick="window.App.switchProjectTab('chats');">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <span>Chats</span>
+              <span class="tab-badge" id="tab-chats-count">0</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB CONTENT: OVERVIEW -->
+        <div id="project-tab-content-overview" class="project-tab-content active">
+          <div class="overview-grid">
+            <div class="overview-left">
+              <!-- Summary Card -->
+              <div class="content-card">
+                <div class="card-header">
+                  <h3>Project Overview</h3>
+                </div>
+                <div class="card-body">
+                  <p id="overview-full-desc" class="overview-lead-text">Detailed scope of this project...</p>
+                  
+                  <div class="progress-section">
+                    <div class="progress-label-row">
+                      <span>Overall Progress</span>
+                      <strong id="overview-progress-pct">0%</strong>
+                    </div>
+                    <div class="progress-track">
+                      <div class="progress-fill" id="overview-progress-bar" style="width: 0%;"></div>
+                    </div>
+                  </div>
+
+                  <div class="overview-metrics-row">
+                    <div class="metric-box">
+                      <span class="metric-value" id="overview-metric-total">0</span>
+                      <span class="metric-label">Total Tasks</span>
+                    </div>
+                    <div class="metric-box pending">
+                      <span class="metric-value" id="overview-metric-pending">0</span>
+                      <span class="metric-label">Pending</span>
+                    </div>
+                    <div class="metric-box completed">
+                      <span class="metric-value" id="overview-metric-completed">0</span>
+                      <span class="metric-label">Completed</span>
+                    </div>
+                    <div class="metric-box members">
+                      <span class="metric-value" id="overview-metric-members">0</span>
+                      <span class="metric-label">Members</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Member Task Completion Donut Chart -->
+              <div id="overview-completion-chart-card" class="content-card member-completion-chart-card">
+                <div class="card-header">
+                  <div class="header-title-row">
+                    <h3 style="display: flex; align-items: center; gap: 8px; margin: 0;">
+                      <span style="font-size: 1.25rem;">🍩</span>
+                      <span>Member Task Completion</span>
+                    </h3>
+                    <span class="badge badge-info" id="overview-chart-total-completed-badge">0 Done</span>
+                  </div>
+                  <p class="section-subtitle" style="margin: 3px 0 0 0; font-size: 0.82rem; color: var(--text-muted);">
+                    Visual breakdown of completed deliverables contributed by each team member.
+                  </p>
+                </div>
+                <div class="card-body" style="padding-top: 14px;">
+                  <div id="overview-donut-chart-container" class="donut-chart-wrapper">
+                    <!-- Rendered dynamically by JS -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- Team Member Rankings & Leaderboard (Options 1, 2 & 4) -->
+              <div id="overview-leaderboard-card" class="content-card leaderboard-card">
+                <div class="card-header leaderboard-header">
+                  <div class="leaderboard-title-group">
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                      <h3 style="display: flex; align-items: center; gap: 8px; margin: 0;">
+                        <span style="font-size: 1.25rem;">🏆</span>
+                        <span>Team Member Rankings</span>
+                      </h3>
+                      <div id="leaderboard-visibility-control">
+                        <!-- Rendered by JS: visibility button for Admin/Owner -->
+                      </div>
+                    </div>
+                    <p class="section-subtitle" style="margin: 3px 0 0 0; font-size: 0.82rem; color: var(--text-muted);">Real-time performance ranking based on deliverables, punctuality, and collaboration.</p>
+                  </div>
+                  <div class="leaderboard-filter-group" role="tablist">
+                    <button class="leaderboard-filter-btn active" data-rank-filter="overall" onclick="window.App.switchLeaderboardFilter('overall');" title="Composite Score combining tasks, deadlines & collaboration">
+                      Overall Score
+                    </button>
+                    <button class="leaderboard-filter-btn" data-rank-filter="completed" onclick="window.App.switchLeaderboardFilter('completed');" title="Option 3: Simple task completion count — simplest & most direct">
+                      Tasks Completed
+                    </button>
+                    <button class="leaderboard-filter-btn" data-rank-filter="tasks" onclick="window.App.switchLeaderboardFilter('tasks');" title="Weighted by deliverable priority (Urgent, High, Medium, Low)">
+                      Task Productivity
+                    </button>
+                    <button class="leaderboard-filter-btn" data-rank-filter="ontime" onclick="window.App.switchLeaderboardFilter('ontime');" title="Percentage of tasks completed on or before deadline">
+                      On-Time Rate
+                    </button>
+                    <button class="leaderboard-filter-btn" data-rank-filter="collab" onclick="window.App.switchLeaderboardFilter('collab');" title="Task progress updates & team chat participation">
+                      Collaboration
+                    </button>
+                  </div>
+                </div>
+                <div class="card-body" style="padding-top: 10px;">
+                  <div id="project-member-rankings-list" class="leaderboard-list">
+                    <!-- Dynamically rendered by JS -->
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="overview-right">
+              <!-- Team Members Card -->
+              <div class="content-card">
+                <div class="card-header">
+                  <div class="header-title-row">
+                    <h3>Project Team</h3>
+                    <button class="btn btn-ghost btn-xs" onclick="window.App.openInviteModal();">+ Invite</button>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div id="project-team-roster" class="team-roster-list">
+                    <!-- Rendered by JS -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- Activity Feed (Right Side) -->
+              <div class="content-card">
+                <div class="card-header">
+                  <div class="header-title-row">
+                    <h3>Project Activity Feed</h3>
+                    <span style="font-size: 0.78rem; color: var(--text-muted);">Recent Events</span>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div id="project-activity-feed" class="activity-feed-list">
+                    <!-- Rendered by JS -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- Key Credentials & Join Codes -->
+              <div class="content-card">
+                <div class="card-header">
+                  <h3>Quick Join Codes</h3>
+                </div>
+                <div class="card-body">
+                  <div class="credential-row">
+                    <span>Project ID</span>
+                    <code id="overview-project-id">PRJ-0000</code>
+                    <button class="copy-mini-btn" onclick="window.App.copyText(document.getElementById('overview-project-id').innerText, 'Project ID');">Copy</button>
+                  </div>
+                  <div class="credential-row">
+                    <span>Join Code</span>
+                    <code id="overview-join-code">000-000</code>
+                    <button class="copy-mini-btn" onclick="window.App.copyText(document.getElementById('overview-join-code').innerText, 'Join Code');">Copy</button>
+                  </div>
+                  <button class="btn btn-secondary btn-sm btn-block" style="margin-top: 12px;" onclick="window.App.openInviteModal(3);">
+                    Open Full Invite Panel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB CONTENT: MY TASKS (Assigned to Me in this Project) -->
+        <div id="project-tab-content-mytasks" class="project-tab-content">
+          <div class="tasks-toolbar">
+            <div class="toolbar-left">
+              <div class="search-bar mini">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" placeholder="Filter my project tasks..." oninput="window.App.filterMyProjectTasks(this.value)">
+              </div>
+              <div class="filter-pills" id="mytasks-status-filters">
+                <button class="filter-pill active" onclick="window.App.filterMyTasksByStatus('all', this)">All My Tasks</button>
+                <button class="filter-pill" onclick="window.App.filterMyTasksByStatus('pending', this)">Pending</button>
+                <button class="filter-pill" onclick="window.App.filterMyTasksByStatus('in_progress', this)">In Progress</button>
+                <button class="filter-pill" onclick="window.App.filterMyTasksByStatus('completed', this)">Completed</button>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="window.App.openCreateTaskModal();">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>New Task</span>
+            </button>
+          </div>
+
+          <div class="my-tasks-info-banner">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span>Showing deliverables assigned exclusively to you (<strong id="mytasks-user-name">Alex Morgan</strong>) for this project.</span>
+          </div>
+
+          <!-- KANBAN BOARD COLUMNS FOR MY TASKS -->
+          <div class="kanban-board">
+            <!-- TO DO / PENDING -->
+            <div class="kanban-column" id="kanban-col-my-pending">
+              <div class="column-header">
+                <div class="column-title">
+                  <span class="status-indicator pending"></span>
+                  <span>Pending / To Do</span>
+                </div>
+                <span class="column-count" id="count-col-my-pending">0</span>
+              </div>
+              <div class="column-cards" id="cards-col-my-pending"></div>
+            </div>
+
+            <!-- IN PROGRESS -->
+            <div class="kanban-column" id="kanban-col-my-in_progress">
+              <div class="column-header">
+                <div class="column-title">
+                  <span class="status-indicator in_progress"></span>
+                  <span>In Progress</span>
+                </div>
+                <span class="column-count" id="count-col-my-in_progress">0</span>
+              </div>
+              <div class="column-cards" id="cards-col-my-in_progress"></div>
+            </div>
+
+            <!-- COMPLETED -->
+            <div class="kanban-column" id="kanban-col-my-completed">
+              <div class="column-header">
+                <div class="column-title">
+                  <span class="status-indicator completed"></span>
+                  <span>Completed</span>
+                </div>
+                <span class="column-count" id="count-col-my-completed">0</span>
+              </div>
+              <div class="column-cards" id="cards-col-my-completed"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB CONTENT: TASKS -->
+        <div id="project-tab-content-tasks" class="project-tab-content">
+          <div class="tasks-toolbar">
+            <div class="toolbar-left">
+              <div class="search-bar mini">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" placeholder="Filter project tasks..." oninput="window.App.filterProjectTasks(this.value)">
+              </div>
+              <div class="filter-pills" id="task-status-filters">
+                <button class="filter-pill active" onclick="window.App.filterProjectTasksByStatus('all', this)">All</button>
+                <button class="filter-pill" onclick="window.App.filterProjectTasksByStatus('pending', this)">Pending</button>
+                <button class="filter-pill" onclick="window.App.filterProjectTasksByStatus('in_progress', this)">In Progress</button>
+                <button class="filter-pill" onclick="window.App.filterProjectTasksByStatus('completed', this)">Completed</button>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="window.App.openCreateTaskModal();">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>New Task</span>
+            </button>
+          </div>
+
+          <!-- KANBAN BOARD COLUMNS -->
+          <div class="kanban-board">
+            <!-- TO DO / PENDING COLUMN -->
+            <div class="kanban-column" id="kanban-col-pending">
+              <div class="column-header">
+                <div class="column-title">
+                  <span class="status-indicator pending"></span>
+                  <span>Pending / To Do</span>
+                </div>
+                <span class="column-count" id="count-col-pending">0</span>
+              </div>
+              <div class="column-cards" id="cards-col-pending"></div>
+            </div>
+
+            <!-- IN PROGRESS COLUMN -->
+            <div class="kanban-column" id="kanban-col-in_progress">
+              <div class="column-header">
+                <div class="column-title">
+                  <span class="status-indicator in_progress"></span>
+                  <span>In Progress</span>
+                </div>
+                <span class="column-count" id="count-col-in_progress">0</span>
+              </div>
+              <div class="column-cards" id="cards-col-in_progress"></div>
+            </div>
+
+            <!-- COMPLETED COLUMN -->
+            <div class="kanban-column" id="kanban-col-completed">
+              <div class="column-header">
+                <div class="column-title">
+                  <span class="status-indicator completed"></span>
+                  <span>Completed</span>
+                </div>
+                <span class="column-count" id="count-col-completed">0</span>
+              </div>
+              <div class="column-cards" id="cards-col-completed"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB CONTENT: TEAM -->
+        <div id="project-tab-content-team" class="project-tab-content">
+          <div class="team-tab-header">
+            <div class="team-tab-title-wrap">
+              <h3 class="team-tab-title">Project Team Members</h3>
+              <p class="team-tab-subtitle" id="team-tab-subtitle">All members collaborating on this project</p>
+            </div>
+            <div class="team-tab-actions">
+              <div class="team-search-box">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="team-search-input" placeholder="Search members..." oninput="window.App.filterProjectTeam(this.value)">
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="window.App.openInviteModal();">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                <span>+ Invite Member</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="team-cards-grid" id="project-team-cards-list">
+            <!-- Rendered by window.App.renderProjectTeam() -->
+          </div>
+        </div>
+
+        <!-- TAB CONTENT: CHATS -->
+        <div id="project-tab-content-chats" class="project-tab-content">
+          <div class="chat-wrapper">
+            <div class="chat-header">
+              <div class="chat-title-info">
+                <span class="channel-hashtag">#</span>
+                <div>
+                  <strong id="chat-channel-title">project-general</strong>
+                  <span class="chat-members-count" id="chat-members-subtitle">3 members participating</span>
+                </div>
+              </div>
+              <div class="chat-actions">
+                <button class="btn btn-ghost btn-xs" onclick="window.App.openInviteModal();">+ Invite to Chat</button>
+              </div>
+            </div>
+
+            <!-- CHAT MESSAGES STREAM -->
+            <div class="chat-messages" id="chat-messages-container">
+              <!-- Rendered by JS -->
+            </div>
+
+            <!-- CHAT COMPOSER -->
+            <form class="chat-composer" id="chat-composer-form" onsubmit="event.preventDefault(); window.App.handleSendMessage();">
+              <div class="composer-input-container">
+                <input type="text" id="chat-message-input" placeholder="Type a message or type @ to mention team members..." autocomplete="off" required>
+                <!-- CHAT MENTION AUTOCOMPLETE POPUP -->
+                <div id="chat-mention-popup" class="chat-mention-popup" role="listbox" aria-label="Mention team members" style="display: none;"></div>
+                <button type="submit" class="btn btn-primary send-btn" aria-label="Send message">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+      </main>
+
+    </div><!-- /#main-app -->
+
+    <!-- ========================================================= -->
+    <!-- 3. MODALS                                                 -->
+    <!-- ========================================================= -->
+
+    <!-- MODAL 1: CREATE PROJECT -->
+    <div id="modal-create-project" class="modal-backdrop">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div>
+            <h3>Create New Project</h3>
+            <p class="modal-subtitle">Start a new project group with milestones, tasks, and team access.</p>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-create-project');">✕</button>
+        </div>
+        <form id="form-create-project" onsubmit="event.preventDefault(); window.App.handleCreateProject();">
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="project-name-input">Project Name <span class="required">*</span></label>
+              <input type="text" id="project-name-input" placeholder="e.g. NextGen Web Portal, Brand Redesign" required>
+            </div>
+
+            <div class="form-group">
+              <label for="project-group-input">Project Group / Category <span class="required">*</span></label>
+              <input type="text" id="project-group-input" list="project-group-suggestions" placeholder="e.g. Engineering & Tech, Marketing & Growth, Design..." required autocomplete="off">
+              <datalist id="project-group-suggestions">
+                <option value="Engineering & Tech"></option>
+                <option value="Product & Design"></option>
+                <option value="Marketing & Growth"></option>
+                <option value="Operations & Legal"></option>
+                <option value="Client Delivery"></option>
+              </datalist>
+            </div>
+
+            <div class="form-group">
+              <label for="project-desc-input">Description <span class="required">*</span></label>
+              <textarea id="project-desc-input" rows="3" placeholder="Briefly summarize the goal, scope, and key deliverables..." required></textarea>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group col-6">
+                <label for="project-start-date">Start Date <span class="required">*</span></label>
+                <input type="date" id="project-start-date" required>
+              </div>
+              <div class="form-group col-6">
+                <label for="project-deadline">Deadline <span class="required">*</span></label>
+                <input type="date" id="project-deadline" required>
+              </div>
+            </div>
+
+            <!-- TASK ASSIGNMENT PERMISSION SETTING (3 LEVELS) -->
+            <div class="form-group">
+              <label for="project-assign-permission-select">Task Assignment Permission <span class="required">*</span></label>
+              <select id="project-assign-permission-select" onchange="window.App.toggleSpecialAssignerField(this.value)" required>
+                <option value="anyone">Anyone</option>
+                <option value="creator_admin">Admin</option>
+                <option value="specific_members">Selected Member</option>
+              </select>
+              <small class="field-hint">💡 Note: Every member can always add their own tasks to the project.</small>
+            </div>
+
+            <div id="special-assigners-container" class="form-group" style="display: none;">
+              <label>Select Specific Members Who Can Assign Tasks</label>
+              <p class="field-hint" style="margin-bottom: 8px;">Check the specific team members authorized to assign tasks to other colleagues:</p>
+              <div id="create-project-special-assigners-list" class="special-assigners-select-list">
+                <!-- Dynamically rendered by JS -->
+              </div>
+            </div>
+
+            <!-- TEAM MEMBER RANKINGS VISIBILITY SETTING (Admin, Everyone, Selected Member) -->
+            <div class="form-group" style="margin-top: 14px;">
+              <label for="project-rankings-visibility-select">Who can see "Team Member Rankings" <span class="required">*</span></label>
+              <select id="project-rankings-visibility-select" onchange="window.App.toggleCreateRankingsViewerField(this.value)" required>
+                <option value="everyone" selected>Everyone</option>
+                <option value="admin">Admin</option>
+                <option value="selected">Selected member</option>
+              </select>
+              <small class="field-hint">💡 Control who has permission to view member rankings and the performance leaderboard.</small>
+            </div>
+
+            <div id="create-rankings-viewers-container" class="form-group" style="display: none;">
+              <label>Select Specific Members Who Can View Rankings</label>
+              <p class="field-hint" style="margin-bottom: 8px;">Check the specific team members authorized to view the leaderboard:</p>
+              <div id="create-project-rankings-viewers-list" class="special-assigners-select-list">
+                <!-- Dynamically rendered by JS -->
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" onclick="window.App.closeModal('modal-create-project');">Cancel</button>
+            <button type="submit" class="btn btn-primary">Create Project Group</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL 2: INVITE MEMBER (4 METHODS) -->
+    <div id="modal-invite-member" class="modal-backdrop">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-header">
+          <div>
+            <h3>Invite Team Members</h3>
+            <p class="modal-subtitle">Invite colleagues via email, past collaborators, sharable link, or Project ID & Join Code.</p>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-invite-member');">✕</button>
+        </div>
+        <div class="modal-body">
+          <!-- 4 INVITATION TABS: EMAIL, PAST COLLABORATORS, LINK, ID & CODE -->
+          <div class="invite-tabs" role="tablist">
+            <button class="invite-tab-btn active" data-invite-tab="email" onclick="window.App.switchInviteTab('email');">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              <span>Email Address</span>
+            </button>
+            <button class="invite-tab-btn" data-invite-tab="past" onclick="window.App.switchInviteTab('past');">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span>Past Collaborators</span>
+            </button>
+            <button class="invite-tab-btn" data-invite-tab="link" onclick="window.App.switchInviteTab('link');">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              <span>Sharable Link</span>
+            </button>
+            <button class="invite-tab-btn" data-invite-tab="code" onclick="window.App.switchInviteTab('code');">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <span>ID & Join Code</span>
+            </button>
+          </div>
+
+          <!-- INVITE PANEL 1: EMAIL ADDRESS -->
+          <div id="invite-panel-email" class="invite-tab-panel active">
+            <p class="panel-desc-text">Add colleagues by their email address to grant them immediate membership in this project group.</p>
+
+            <!-- Informative Notice Box: Automatic Access vs No Email Notification -->
+            <div class="invite-email-notice-card">
+              <div class="invite-email-notice-header">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="12"/>
+                  <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+                <span>How Email Membership Works</span>
+              </div>
+              <div class="invite-email-notice-body">
+                <div class="notice-point">
+                  <span class="notice-point-icon">⚡</span>
+                  <div>
+                    <strong>Automatic Dashboard Access:</strong>
+                    <span>When you add a colleague's email, this project will automatically show on their dashboard as soon as they sign in with this same email address (via Google or Email login).</span>
+                  </div>
+                </div>
+                <div class="notice-point">
+                  <span class="notice-point-icon">🔕</span>
+                  <div>
+                    <strong>No Automated Notification Sent:</strong>
+                    <span>Adding an email here does <em>not</em> dispatch any email or notification to the recipient. Please notify your colleague directly or share the project link / join code so they know to log in.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <form id="form-invite-email" onsubmit="event.preventDefault(); window.App.handleAddEmailMember();">
+              <div class="form-row">
+                <div class="form-group col-7">
+                  <label for="invite-email-input">Colleague's Email Address <span class="required">*</span></label>
+                  <input type="email" id="invite-email-input" placeholder="e.g. colleague@company.com" required autocomplete="email">
+                </div>
+                <div class="form-group col-5">
+                  <label for="invite-role-input">Project Role <span class="required">*</span></label>
+                  <input type="text" id="invite-role-input" list="invite-role-suggestions" placeholder="e.g. Member, Lead..." value="Member" required autocomplete="off">
+                  <datalist id="invite-role-suggestions">
+                    <option value="Member">
+                    <option value="Contributor">
+                    <option value="Project Lead">
+                    <option value="Developer">
+                    <option value="Designer">
+                    <option value="Product Manager">
+                    <option value="QA Engineer">
+                  </datalist>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="invite-name-input">Colleague's Name <small style="color: var(--text-muted); font-weight: normal;">(Optional - defaults to email prefix)</small></label>
+                <input type="text" id="invite-name-input" placeholder="e.g. Rajeev Ranjan, Ravi kumar">
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; margin-top: 14px;">
+                <button type="submit" class="btn btn-primary" id="btn-add-email-member">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                  <span>Add Member to Project</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- INVITE PANEL 2: PAST COLLABORATORS -->
+          <div id="invite-panel-past" class="invite-tab-panel">
+            <p class="panel-desc-text">People you've worked with before across your previous projects. Click to immediately add them to this group.</p>
+            <div id="past-collaborators-list" class="past-collaborators-list">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+
+          <!-- INVITE PANEL 3: SHARABLE LINK -->
+          <div id="invite-panel-link" class="invite-tab-panel">
+            <p class="panel-desc-text">Anyone with this unique join link can access this project group.</p>
+            <div class="copy-input-box">
+              <input type="text" id="invite-share-link" readonly value="https://pulsepm.io/join/PRJ-1049?token=94ba31">
+              <button class="btn btn-primary" onclick="window.App.copyText(document.getElementById('invite-share-link').value, 'Invite Link');">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <span>Copy Link</span>
+              </button>
+            </div>
+            <div class="security-note">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <span>This link grants Contributor access and expires in 30 days.</span>
+            </div>
+          </div>
+
+          <!-- INVITE PANEL 4: PROJECT ID & JOIN CODE -->
+          <div id="invite-panel-code" class="invite-tab-panel">
+            <p class="panel-desc-text">Team members can enter this Project ID and 6-digit Join Code on their dashboard to instantly enter the project.</p>
+            <div class="code-cards-row">
+              <div class="code-display-card">
+                <span class="code-label">Project ID</span>
+                <span class="code-val" id="invite-modal-project-id">PRJ-2940</span>
+                <button class="btn btn-secondary btn-xs" onclick="window.App.copyText(document.getElementById('invite-modal-project-id').innerText, 'Project ID');">Copy ID</button>
+              </div>
+              <div class="code-display-card highlight">
+                <span class="code-label">6-Digit Join Code</span>
+                <span class="code-val" id="invite-modal-join-code">849-210</span>
+                <button class="btn btn-secondary btn-xs" onclick="window.App.copyText(document.getElementById('invite-modal-join-code').innerText, 'Join Code');">Copy Code</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 3: CREATE / ASSIGN TASK -->
+    <div id="modal-create-task" class="modal-backdrop">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div>
+            <h3>Add New Task</h3>
+            <p class="modal-subtitle">Define deliverables and assign directly to a project member.</p>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-create-task');">✕</button>
+        </div>
+        <form id="form-create-task" onsubmit="event.preventDefault(); window.App.handleCreateTask();">
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="task-title-input">Task Title <span class="required">*</span></label>
+              <input type="text" id="task-title-input" placeholder="e.g. Implement OAuth2 tokens, Design mobile checkout" required>
+            </div>
+
+            <div class="form-group">
+              <label for="task-desc-input">Task Description</label>
+              <textarea id="task-desc-input" rows="2" placeholder="Provide context, acceptance criteria or links..."></textarea>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group col-6">
+                <label for="task-priority-select">Priority <span class="required">*</span></label>
+                <select id="task-priority-select" required>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High Priority</option>
+                  <option value="Urgent">🔥 Urgent</option>
+                  <option value="Low">Low</option>
+                </select>
+              </div>
+              <div class="form-group col-6">
+                <label for="task-due-date">Due Date <span class="required">*</span></label>
+                <input type="date" id="task-due-date" required>
+              </div>
+            </div>
+
+            <div id="task-assign-policy-banner" class="task-policy-banner">
+              <!-- Rendered dynamically by JS -->
+            </div>
+
+            <div class="form-group">
+              <label for="task-assignee-select">Assign To Member <span class="required">*</span></label>
+              <select id="task-assignee-select" required>
+                <!-- Populated with current project members -->
+              </select>
+              <small id="task-assignee-hint" class="field-hint"></small>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" onclick="window.App.closeModal('modal-create-task');">Cancel</button>
+            <button type="submit" class="btn btn-primary">Create & Assign Task</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL 3B: TASK DETAILS, SUBTASKS & COMMENTS -->
+    <div id="modal-task-detail" class="modal-backdrop">
+      <div class="modal-dialog modal-lg" style="max-width: 680px;">
+        <div class="modal-header">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+              <span id="task-detail-priority-badge" class="badge-priority high">High</span>
+              <span id="task-detail-project-tag" class="group-badge">Project Name</span>
+            </div>
+            <h3 id="task-detail-title" style="margin: 0; font-size: 1.25rem;">Task Title</h3>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-task-detail');">✕</button>
+        </div>
+
+        <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
+          <!-- Task Meta Row -->
+          <div class="task-detail-meta-grid">
+            <div class="task-detail-meta-item">
+              <span class="meta-label">Status</span>
+              <select id="task-detail-status-select" class="form-control" style="padding: 4px 8px; font-size: 0.82rem; height: auto;" onchange="window.App.handleDetailStatusChange(this.value);">
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+              </select>
+              <span id="task-detail-status-locked-hint" style="display: none; font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">🔒 Status locked to assignee & assigners</span>
+            </div>
+            <div class="task-detail-meta-item">
+              <span class="meta-label">Due Date</span>
+              <span id="task-detail-due-date" class="meta-value">--</span>
+            </div>
+            <div class="task-detail-meta-item" id="task-detail-completed-date-container" style="display: none;">
+              <span class="meta-label">Completed Date</span>
+              <span id="task-detail-completed-date" class="meta-value" style="color: var(--success, #10b981); font-weight: 600;">--</span>
+            </div>
+            <div class="task-detail-meta-item task-detail-meta-assignee" style="grid-column: 1 / -1;">
+              <span class="meta-label">Assigned Member</span>
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; width: 100%; margin-top: 4px;">
+                <div id="task-detail-assignee-box" class="card-assignee">
+                  <div id="task-detail-assignee-avatar" class="card-assignee-avatar">--</div>
+                  <span id="task-detail-assignee-name" class="card-assignee-name">--</span>
+                </div>
+                <div id="task-detail-assignee-actions" style="display: flex; align-items: center; gap: 8px;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Task Description -->
+          <div class="task-detail-section" style="margin-top: 16px;">
+            <label class="section-subheading">Description</label>
+            <p id="task-detail-description" class="task-detail-desc-text">No description provided.</p>
+          </div>
+
+          <div class="detail-divider"></div>
+
+          <!-- SUBTASKS SECTION -->
+          <div class="task-detail-section">
+            <div class="section-title-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <label class="section-subheading" style="margin: 0; display: flex; align-items: center; gap: 6px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <span>Subtasks Checklist</span>
+              </label>
+              <span id="subtasks-progress-label" class="subtasks-progress-badge">0/0 Completed (0%)</span>
+            </div>
+
+            <!-- Subtask progress bar -->
+            <div class="subtask-progress-track">
+              <div id="subtask-progress-fill" class="subtask-progress-fill" style="width: 0%;"></div>
+            </div>
+
+            <!-- Subtask checklist items -->
+            <div id="task-subtasks-list" class="task-subtasks-list">
+              <!-- Rendered dynamically by JS -->
+            </div>
+
+            <!-- Add Subtask Form -->
+            <form id="form-add-subtask" class="subtask-add-form" onsubmit="event.preventDefault(); window.App.handleAddSubtaskSubmit();">
+              <input type="text" id="input-new-subtask" class="form-control" placeholder="+ Add a subtask (press Enter)..." autocomplete="off">
+              <button type="submit" class="btn btn-secondary btn-sm">+ Add</button>
+            </form>
+          </div>
+
+          <div class="detail-divider"></div>
+
+          <!-- COMMENTS SECTION (Assignee Only) -->
+          <div class="task-detail-section">
+            <label class="section-subheading" style="display: flex; align-items: center; gap: 6px; margin-bottom: 12px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <span>Task Discussion & Updates</span>
+            </label>
+
+            <!-- Comments timeline list -->
+            <div id="task-comments-list" class="task-comments-list">
+              <!-- Rendered dynamically by JS -->
+            </div>
+
+            <!-- Commenting Area (Conditional: Assignee Form VS Locked Alert) -->
+            <div id="task-comment-form-container" class="task-comment-form-container">
+              <form id="form-add-task-comment" onsubmit="event.preventDefault(); window.App.handleAddTaskCommentSubmit();">
+                <div class="comment-input-wrap">
+                  <textarea id="task-comment-input" class="form-control" rows="2" placeholder="Write a progress note or deliverable update as the assignee..." required></textarea>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                    <span class="comment-assignee-badge" id="comment-active-assignee-badge">✍️ Commenting as Assigned Member</span>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                      <span>Post Comment</span>
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <div id="task-comment-locked-alert" class="task-comment-locked-alert" style="display: none;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <div>
+                <strong>Commenting restricted to task assignee</strong>
+                <p id="task-comment-locked-message" style="margin: 2px 0 0; font-size: 0.8rem;">Only the assigned member can post comments on this task. Other members can view updates in read-only mode.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="window.App.closeModal('modal-task-detail');">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: MEMBER CONTACT DETAILS -->
+    <div id="modal-member-contact" class="modal-backdrop">
+      <div class="modal-dialog member-contact-dialog" style="max-width: 480px;">
+        <div class="modal-header">
+          <div>
+            <h3>Member Profile & Contacts</h3>
+            <p class="modal-subtitle">Team member contact details and active responsibilities</p>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-member-contact');">✕</button>
+        </div>
+        <div class="modal-body" id="member-contact-modal-body">
+          <!-- Populated dynamically by window.App.openMemberContactModal -->
+        </div>
+        <div class="modal-footer" id="member-contact-modal-footer">
+          <!-- Action buttons populated dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: MEMBER TASK COMPLETION DONUT -->
+    <div id="modal-member-donut" class="modal-backdrop">
+      <div class="modal-dialog member-donut-dialog" style="max-width: 600px;">
+        <div class="modal-header">
+          <div>
+            <h3 style="display: flex; align-items: center; gap: 8px; margin: 0;">
+              <span style="font-size: 1.25rem;">🍩</span>
+              <span id="member-donut-modal-title">Member Task Completion</span>
+            </h3>
+            <p class="modal-subtitle" id="member-donut-modal-subtitle">Deliverable completion progress and status donut chart</p>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-member-donut');">✕</button>
+        </div>
+        <div class="modal-body" id="member-donut-modal-body" style="max-height: 75vh; overflow-y: auto; padding: 20px;">
+          <!-- Populated dynamically by window.App.openMemberDonutModal -->
+        </div>
+        <div class="modal-footer" id="member-donut-modal-footer">
+          <!-- Action buttons populated dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: EDIT / ASSIGN MEMBER ROLE -->
+    <div id="modal-edit-member-role" class="modal-backdrop">
+      <div class="modal-dialog" style="max-width: 440px;">
+        <div class="modal-header">
+          <div>
+            <h3>Assign / Edit Member Role</h3>
+            <p class="modal-subtitle">Define a custom project role without any predefined restrictions.</p>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-edit-member-role');">✕</button>
+        </div>
+        <form id="form-edit-member-role" onsubmit="event.preventDefault(); window.App.handleSaveMemberRole();">
+          <div class="modal-body">
+            <input type="hidden" id="edit-role-project-id">
+            <input type="hidden" id="edit-role-member-id">
+
+            <div class="edit-role-preview-card">
+              <div class="member-avatar" id="edit-role-member-avatar">AM</div>
+              <div class="edit-role-preview-meta">
+                <strong id="edit-role-member-name">Alex Morgan</strong>
+                <span id="edit-role-member-email" class="text-secondary" style="font-size: 0.8rem; display: block;">alex@gmail.com</span>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 16px;">
+              <label for="edit-member-role-input">Project Role <span class="required">*</span></label>
+              <input type="text" id="edit-member-role-input" placeholder="e.g. Lead Frontend Engineer, Scrum Master, UI Designer..." required autocomplete="off">
+              <small class="field-hint">No predefined roles — specify any custom role that fits your project.</small>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" onclick="window.App.closeModal('modal-edit-member-role');">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Role</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: EDIT PROJECT DETAIL (Creator Only) -->
+    <div id="modal-edit-project-detail" class="modal-backdrop">
+      <div class="modal-dialog modal-md">
+        <div class="modal-header">
+          <div>
+            <h3>Edit Project Details</h3>
+            <p class="modal-subtitle">Modify project name, category, description, and permissions. (Creator only)</p>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-edit-project-detail');">✕</button>
+        </div>
+        <form id="form-edit-project-detail" onsubmit="window.App.handleSaveProjectDetail(event);">
+          <input type="hidden" id="edit-project-id">
+          <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+            <div class="form-group">
+              <label for="edit-project-name">Project Name <span class="required">*</span></label>
+              <input type="text" id="edit-project-name" class="form-control" placeholder="Project Name" required maxlength="60">
+            </div>
+
+            <div class="form-group">
+              <label for="edit-project-group">Project Group / Category <span class="required">*</span></label>
+              <input type="text" id="edit-project-group" list="edit-project-group-suggestions" class="form-control" placeholder="e.g. Engineering & Tech, Marketing..." required autocomplete="off">
+              <datalist id="edit-project-group-suggestions">
+                <option value="Engineering & Tech"></option>
+                <option value="Product & Design"></option>
+                <option value="Marketing & Growth"></option>
+                <option value="Operations & Legal"></option>
+                <option value="Client Delivery"></option>
+                <option value="Startup"></option>
+              </datalist>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-project-desc">Description <span class="required">*</span></label>
+              <textarea id="edit-project-desc" rows="3" class="form-control" placeholder="Project summary and scope..." required></textarea>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group col-6">
+                <label for="edit-project-start-date">Start Date <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">(Locked)</span></label>
+                <input type="date" id="edit-project-start-date" class="form-control" readonly tabindex="-1" style="cursor: not-allowed; background: var(--bg-surface); opacity: 0.85;" title="Start date cannot be modified after project creation">
+                <small class="field-hint">Start date is fixed and cannot be edited.</small>
+              </div>
+              <div class="form-group col-6">
+                <label for="edit-project-end-date">End Date <span class="required">*</span></label>
+                <input type="date" id="edit-project-end-date" class="form-control" required title="Adjust project target completion deadline">
+                <small class="field-hint">Editable project completion deadline.</small>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-project-assign-policy">Who can assign tasks? <span class="required">*</span></label>
+              <select id="edit-project-assign-policy" class="form-control" onchange="window.App.toggleEditProjectAssignPolicy(this.value);" required>
+                <option value="creator_admin">Admin (Project Owner & Lead only)</option>
+                <option value="specific_members">Selected Member (Owner + appointed assigners)</option>
+                <option value="anyone">Anyone (All team members can assign)</option>
+              </select>
+            </div>
+
+            <div id="edit-project-special-assigners-container" class="form-group" style="display: none; background: var(--bg-surface); padding: 12px; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+              <label style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 6px;">Select Specific Members Who Can Assign Tasks</label>
+              <p class="field-hint" style="margin-bottom: 8px;">Check the team members authorized to assign tasks to colleagues:</p>
+              <div id="edit-project-special-assigners-list" class="special-assigners-select-list" style="max-height: 160px; overflow-y: auto;">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-project-rankings-vis-select">Who can see "Team Member Rankings"? <span class="required">*</span></label>
+              <select id="edit-project-rankings-vis-select" class="form-control" onchange="window.App.toggleEditProjectRankingsVis(this.value);" required>
+                <option value="everyone">Everyone (All project members)</option>
+                <option value="admin">Admin (Project Owner & Admins only)</option>
+                <option value="selected">Selected member (Admins + chosen members)</option>
+              </select>
+            </div>
+
+            <div id="edit-project-rankings-viewers-container" class="form-group" style="display: none; background: var(--bg-surface); padding: 12px; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+              <label style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 6px;">Select Specific Members Who Can View Rankings</label>
+              <p class="field-hint" style="margin-bottom: 8px;">Check the team members authorized to view the leaderboard:</p>
+              <div id="edit-project-rankings-viewers-list" class="special-assigners-select-list" style="max-height: 160px; overflow-y: auto;">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="window.App.closeModal('modal-edit-project-detail');">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="btn-save-edit-project">Save Project Details</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: CHANGE WHO CAN ASSIGN TASKS (Assignment Policy) -->
+    <div id="modal-assignment-policy" class="modal-backdrop">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div>
+            <h3>Task Assignment Permission</h3>
+            <p class="modal-subtitle">Configure who has authority to assign deliverables in this project.</p>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-assignment-policy');">✕</button>
+        </div>
+        <form id="form-assignment-policy" onsubmit="window.App.handleSaveAssignmentPolicy(event);">
+          <div class="modal-body">
+            <input type="hidden" id="assign-policy-project-id">
+
+            <div class="form-group">
+              <label for="assign-policy-select">Who can assign tasks? <span class="required">*</span></label>
+              <select id="assign-policy-select" class="form-control" onchange="window.App.toggleAssignPolicyMemberList(this.value);" required>
+                <option value="creator_admin">Admin (Project Owner & Lead only)</option>
+                <option value="specific_members">Selected Member (Owner + appointed assigners)</option>
+                <option value="anyone">Anyone (All team members can assign)</option>
+              </select>
+            </div>
+
+            <div id="assign-policy-members-container" class="form-group" style="display: none;">
+              <label>Select Specific Team Members Authorized to Assign Tasks</label>
+              <p class="field-hint" style="margin-bottom: 8px;">Check the specific colleagues authorized to assign deliverables:</p>
+              <div id="assign-policy-members-checklist" class="special-assigners-select-list">
+                <!-- Dynamically populated by JS with project.members -->
+              </div>
+            </div>
+
+            <div class="notice-box info" style="margin-top: 14px; padding: 12px; background: var(--bg-subtle); border-radius: 8px; border-left: 3px solid var(--primary); font-size: 0.82rem; line-height: 1.45;">
+              <span style="font-size: 1.05rem; margin-right: 4px;">💡</span>
+              <span><strong>Self-Assignment Note:</strong> Team members can always assign tasks to themselves even if assignment is restricted to Admin or Selected Members.</span>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" onclick="window.App.closeModal('modal-assignment-policy');">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="btn-save-assign-policy">Save Assignment Permission</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: TEAM MEMBER RANKINGS VISIBILITY (Admin, Everyone, Selected Member) -->
+    <div id="modal-rankings-visibility" class="modal-backdrop">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div>
+            <h3>Team Member Rankings Visibility</h3>
+            <p class="modal-subtitle">Choose who has permission to view performance rankings and the leaderboard in this project.</p>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-rankings-visibility');">✕</button>
+        </div>
+        <form id="form-rankings-visibility" onsubmit="window.App.handleSaveRankingsVisibility(event)">
+          <div class="modal-body">
+            <input type="hidden" id="rankings-vis-project-id">
+
+            <div class="form-group">
+              <label for="rankings-vis-policy-select">Who can see "Team Member Rankings"? <span class="required">*</span></label>
+              <select id="rankings-vis-policy-select" onchange="window.App.toggleRankingsVisMemberList(this.value)" required>
+                <option value="everyone">Everyone (All project members)</option>
+                <option value="admin">Admin (Project Owner & Admins only)</option>
+                <option value="selected">Selected member (Admins + chosen members)</option>
+              </select>
+            </div>
+
+            <div id="rankings-vis-members-container" class="form-group" style="display: none;">
+              <label>Select Specific Team Members Who Can View Rankings</label>
+              <p class="field-hint" style="margin-bottom: 8px;">Check the specific colleagues authorized to view the leaderboard:</p>
+              <div id="rankings-vis-members-checklist" class="special-assigners-select-list">
+                <!-- Dynamically populated by JS with project.members -->
+              </div>
+            </div>
+
+            <div class="notice-box info" style="margin-top: 14px; padding: 12px; background: var(--bg-subtle); border-radius: 8px; border-left: 3px solid var(--primary); font-size: 0.82rem; line-height: 1.45;">
+              <span style="font-size: 1.05rem; margin-right: 4px;">💡</span>
+              <span><strong>Admin Access Guarantee:</strong> Project Creator, Owner, and designated Admins can always view and manage the rankings regardless of the chosen setting.</span>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" onclick="window.App.closeModal('modal-rankings-visibility');">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Visibility Settings</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL 4: JOIN PROJECT WITH CODE -->
+    <div id="modal-join-project" class="modal-backdrop">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div>
+            <h3>Join Project with Code</h3>
+            <p class="modal-subtitle">Enter the Project ID and 6-digit code shared by the project creator.</p>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-join-project');">✕</button>
+        </div>
+        <form id="form-join-project" onsubmit="event.preventDefault(); window.App.handleJoinProjectWithCode();">
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="join-project-id-input">Project ID <span class="required">*</span></label>
+              <input type="text" id="join-project-id-input" placeholder="e.g. PRJ-1049" required>
+            </div>
+            <div class="form-group">
+              <label for="join-project-code-input">6-Digit Join Code <span class="required">*</span></label>
+              <input type="text" id="join-project-code-input" placeholder="e.g. 849-210" required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" onclick="window.App.closeModal('modal-join-project');">Cancel</button>
+            <button type="submit" class="btn btn-primary">Join Project</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL 5: PROFILE & LINKED ACCOUNTS -->
+    <div id="modal-profile" class="modal-backdrop">
+      <div class="modal-dialog modal-md">
+        <div class="modal-header">
+          <div>
+            <h3>User Profile & Linked Accounts</h3>
+            <p class="modal-subtitle">Unified credentials linked to your single PulsePM account.</p>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-profile');">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="profile-hero">
+            <div class="profile-avatar-wrapper">
+              <div class="avatar-huge" id="profile-hero-avatar" onclick="window.App.openSetPhotoModal();" style="cursor: pointer;" title="Click to set photo or avatar">AM</div>
+              <button type="button" class="avatar-camera-btn" onclick="window.App.openSetPhotoModal();" title="Set photo or avatar">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </button>
+            </div>
+            <div class="profile-hero-info">
+              <div class="profile-name-row" id="profile-name-display-wrap">
+                <h4 id="profile-hero-name">Alex Morgan</h4>
+                <button type="button" class="btn btn-secondary btn-xs" id="btn-edit-profile-name" onclick="window.App.enableEditProfileName()" title="Change Name" style="padding: 3px 8px; font-size: 0.75rem; border-radius: 6px;">✏️ Change Name</button>
+              </div>
+              <div class="profile-name-edit" id="profile-name-edit-wrap" style="display: none; margin-bottom: 8px;">
+                <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                  <input type="text" id="profile-name-input" class="form-control" placeholder="Enter full name" style="padding: 5px 10px; font-size: 0.9rem; max-width: 220px;" maxlength="40" onkeydown="if(event.key==='Enter'){window.App.handleSaveProfileName();}else if(event.key==='Escape'){window.App.cancelEditProfileName();}">
+                  <button type="button" class="btn btn-primary btn-xs" onclick="window.App.handleSaveProfileName()" style="padding: 6px 12px;">Save</button>
+                  <button type="button" class="btn btn-secondary btn-xs" onclick="window.App.cancelEditProfileName()" style="padding: 6px 10px;">Cancel</button>
+                </div>
+              </div>
+              <div class="profile-avatar-actions-row">
+                <button type="button" class="btn btn-outline btn-xs" id="btn-open-set-photo" onclick="window.App.openSetPhotoModal();" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; padding: 5px 12px; border-radius: 6px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  <span>Set Photo</span>
+                </button>
+              </div>
+              <span class="badge badge-success" style="display: inline-block; width: fit-content; margin-top: 5px;">Active Account</span>
+            </div>
+          </div>
+
+          <div class="linked-identities-box">
+            <h4>Security & Contact Details</h4>
+            <p class="field-hint">Manage your credentials, login methods, and profile contact details:</p>
+
+            <!-- EMAIL -->
+            <div class="identity-item">
+              <div class="identity-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              </div>
+              <div class="identity-details">
+                <strong>Email Address</strong>
+                <span id="profile-email-val">--</span>
+              </div>
+              <span class="status-pill connected">Primary</span>
+            </div>
+
+            <!-- GOOGLE OAUTH -->
+            <div class="identity-item">
+              <div class="identity-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
+              </div>
+              <div class="identity-details">
+                <strong>Google Account OAuth</strong>
+                <span id="profile-google-val">--</span>
+              </div>
+              <span class="status-pill connected">Connected</span>
+            </div>
+
+            <!-- ACCOUNT PASSWORD -->
+            <div class="identity-item">
+              <div class="identity-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <div class="identity-details">
+                <strong>Account Password</strong>
+                <span id="profile-password-val">••••••••</span>
+              </div>
+              <button type="button" class="btn btn-outline btn-xs" id="btn-profile-password" onclick="window.App.openProfilePasswordModal()" style="font-size: 0.78rem; padding: 4px 10px; border-radius: 6px;">🔑 Change / Add</button>
+            </div>
+
+            <!-- PHONE NUMBER (DIRECT, NO OTP) -->
+            <div class="identity-item" style="flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                <div style="display: flex; align-items: center; flex: 1;">
+                  <div class="identity-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  </div>
+                  <div class="identity-details">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <strong>Phone Number</strong>
+                      <span class="badge" style="font-size: 0.68rem; padding: 1px 6px; background: var(--bg-hover); color: var(--text-muted); border-radius: 4px;">Contact only</span>
+                    </div>
+                    <span id="profile-phone-val">Not added yet</span>
+                  </div>
+                </div>
+                <div id="profile-phone-display-wrap">
+                  <button type="button" class="btn btn-outline btn-xs" id="btn-edit-phone" onclick="window.App.enableEditProfilePhone()" style="font-size: 0.78rem; padding: 4px 10px; border-radius: 6px;">➕ Add / Edit</button>
+                </div>
+              </div>
+              <div id="profile-phone-edit-wrap" style="display: none; width: 100%; margin-top: 10px; padding: 10px 12px; background: var(--bg-hover); border-radius: var(--radius-md);">
+                <label style="font-size: 0.78rem; font-weight: 600; display: block; margin-bottom: 4px;">Direct Phone Number (No OTP required)</label>
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                  <input type="tel" id="profile-phone-input" class="form-control" placeholder="+91 9876543210 or (555) 000-0000" style="padding: 6px 10px; font-size: 0.88rem; max-width: 220px;" maxlength="25" onkeydown="if(event.key==='Enter'){window.App.handleSaveProfilePhone();}else if(event.key==='Escape'){window.App.cancelEditProfilePhone();}">
+                  <button type="button" class="btn btn-primary btn-xs" onclick="window.App.handleSaveProfilePhone()" style="padding: 6px 12px;">Save</button>
+                  <button type="button" class="btn btn-secondary btn-xs" onclick="window.App.cancelEditProfilePhone()" style="padding: 6px 10px;">Cancel</button>
+                </div>
+                <p style="margin: 6px 0 0 0; font-size: 0.74rem; color: var(--text-muted);">
+                  ℹ️ Saved directly to your profile for team contact details. Phone login is currently disabled.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="window.App.closeModal('modal-profile');">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: SET PROFILE PHOTO & AVATAR -->
+    <div id="modal-set-photo" class="modal-backdrop" style="z-index: 1050;">
+      <div class="modal-dialog" style="max-width: 480px;">
+        <div class="modal-header">
+          <div>
+            <h3>Set Profile Photo</h3>
+            <p class="modal-subtitle">Choose a photo or character avatar for your profile</p>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-set-photo');">✕</button>
+        </div>
+        <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+          
+          <!-- Current Active Avatar Preview -->
+          <div class="set-photo-preview-box">
+            <div class="avatar-huge" id="set-photo-current-avatar" style="width: 80px; height: 80px; font-size: 1.85rem; flex-shrink: 0;">--</div>
+            <div style="flex: 1; min-width: 0;">
+              <strong id="set-photo-user-name" style="display: block; font-size: 1rem; color: var(--text-primary); margin-bottom: 2px;">User Name</strong>
+              <span class="field-hint" style="margin: 0; font-size: 0.8rem;">Current profile picture / avatar</span>
+            </div>
+            <button type="button" class="btn btn-ghost btn-xs" id="btn-set-photo-use-initials" onclick="window.App.resetAvatarToInitials();" title="Revert to dynamic name initials" style="font-size: 0.78rem; padding: 5px 10px; border-radius: 6px;">
+              ↺ Use Initials
+            </button>
+          </div>
+
+          <!-- OPTION 1: UPLOAD PHOTO -->
+          <div class="set-photo-upload-card">
+            <input type="file" id="profile-photo-input" accept="image/*" style="display: none;" onchange="window.App.handleProfilePhotoSelected(this.files); window.App.closeModal('modal-set-photo');">
+            <div style="margin-bottom: 8px;">
+              <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('profile-photo-input').click();" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 500; padding: 8px 18px; border-radius: 6px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                <span>Upload New Photo</span>
+              </button>
+            </div>
+            <p class="field-hint" style="margin: 0; font-size: 0.76rem; color: var(--text-muted);">
+              PNG, JPG, or WebP. Cropped & optimized automatically.
+            </p>
+          </div>
+
+          <!-- OPTION 2: PRESET AVATARS -->
+          <div class="preset-avatars-box" style="margin-top: 0;">
+            <div class="preset-avatars-header" style="margin-bottom: 10px;">
+              <h4 style="font-size: 0.92rem; font-weight: 600;">Or Choose a Preset Character</h4>
+              <span class="field-hint" style="margin: 0; font-size: 0.76rem;">Select any persona to set instantly</span>
+            </div>
+            <div class="preset-avatar-grid" id="preset-avatar-grid">
+              <!-- Populated dynamically by window.App.renderPresetAvatars -->
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer" style="justify-content: flex-end;">
+          <button type="button" class="btn btn-secondary" onclick="window.App.closeModal('modal-set-photo');">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 6: SETTINGS -->
+    <div id="modal-settings" class="modal-backdrop">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div>
+            <h3>Application Settings</h3>
+            <p class="modal-subtitle">Configure theme, preferences, and data options.</p>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-settings');">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-item">
+            <div>
+              <strong>Theme Mode</strong>
+              <p class="field-hint">Switch between Light and Dark visual styles.</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="theme-toggle-btn" onclick="window.App.toggleTheme();">
+              <span>🌙 Dark Mode</span>
+            </button>
+          </div>
+
+          <div class="setting-item">
+            <div>
+              <strong>Simulated Teammate Responses</strong>
+              <p class="field-hint">Automatically generate contextual replies in project chats.</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="setting-chat-bot" onchange="window.App.handleToggleChatBot(this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" onclick="window.App.handleSaveSettings();">Save & Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 7: BROADCAST PROJECT UPDATE -->
+    <div id="modal-broadcast-update" class="modal-backdrop">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div>
+            <h3>📢 Broadcast Project Update</h3>
+            <p class="modal-subtitle">Send an official notification to all members of <span id="broadcast-modal-project-name" style="font-weight: 600; color: var(--primary-color);">this project</span>.</p>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-broadcast-update');">✕</button>
+        </div>
+        <form id="form-broadcast-update" onsubmit="event.preventDefault(); window.App.handleSendBroadcastUpdate();">
+          <input type="hidden" id="broadcast-project-id" value="">
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="broadcast-type">Update Category</label>
+              <select id="broadcast-type" class="form-control">
+                <option value="General Update">📢 General Announcement</option>
+                <option value="Milestone Achieved">🚀 Milestone Achieved</option>
+                <option value="Urgent Notice">⚠️ Urgent Notice</option>
+                <option value="Schedule Change">📅 Schedule / Deadline Update</option>
+                <option value="Deliverables Review">📋 Deliverables Review Required</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="broadcast-title">Update Title <span class="required">*</span></label>
+              <input type="text" id="broadcast-title" class="form-control" placeholder="e.g. Sprint 2 milestone reached or Meeting tomorrow at 10 AM" required>
+            </div>
+            <div class="form-group">
+              <label for="broadcast-message">Detailed Update / Message <span class="required">*</span></label>
+              <textarea id="broadcast-message" class="form-control" rows="4" placeholder="Type the update details to share with all team members..." required></textarea>
+            </div>
+            <div class="form-group">
+              <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="broadcast-post-chat" checked>
+                <span>Also post this announcement automatically into Project Chat</span>
+              </label>
+            </div>
+            <div class="info-alert" style="margin-top: 10px; padding: 10px 12px; background: var(--bg-subtle); border-left: 3px solid var(--primary-color); border-radius: 4px; font-size: 0.82rem; color: var(--text-muted);">
+              👥 <span id="broadcast-recipient-count">All project members</span> will receive an unread alert in their notification drawer with direct link to this project.
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" onclick="window.App.closeModal('modal-broadcast-update');">Cancel</button>
+            <button type="submit" class="btn btn-primary">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              <span>Send Broadcast Update</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL 8: CONFIRM DELETE PROJECT (Owner Only) -->
+    <div id="modal-delete-project" class="modal-backdrop">
+      <div class="modal-dialog" style="max-width: 480px;">
+        <div class="modal-header">
+          <div>
+            <h3 style="color: var(--accent-rose);">Delete Project Group</h3>
+            <p class="modal-subtitle">Permanently delete this project and notify all members.</p>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-delete-project');">✕</button>
+        </div>
+        <form id="form-delete-project" onsubmit="event.preventDefault(); window.App.handleConfirmDeleteProject();">
+          <input type="hidden" id="delete-project-id" value="">
+          <div class="modal-body">
+            <div class="danger-warning-box" style="padding: 14px; background: var(--accent-rose-light); border: 1px solid var(--accent-rose); border-radius: var(--radius-md); margin-bottom: 16px;">
+              <div style="display: flex; gap: 10px; align-items: flex-start;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent-rose)" stroke-width="2" style="flex-shrink:0; margin-top: 2px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <div style="font-size: 0.88rem; color: var(--accent-rose); line-height: 1.45;">
+                  <strong>Warning: This action cannot be undone!</strong>
+                  <p style="margin: 4px 0 0 0;">All deliverables, tasks, discussions, and member associations for <strong id="delete-project-name-target">this project</strong> will be permanently removed.</p>
+                </div>
+              </div>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">All team members will receive an alert in their notification drawer that this project was retired by the owner.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" onclick="window.App.closeModal('modal-delete-project');">Keep Project</button>
+            <button type="submit" class="btn btn-danger">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              <span>Yes, Permanently Delete</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL 9: CONFIRM EXIT PROJECT (Member Self-Exit) -->
+    <div id="modal-exit-project" class="modal-backdrop">
+      <div class="modal-dialog" style="max-width: 440px;">
+        <div class="modal-header">
+          <div>
+            <h3>Exit Project Group</h3>
+            <p class="modal-subtitle">Leave this project and remove it from your workspace.</p>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-exit-project');">✕</button>
+        </div>
+        <form id="form-exit-project" onsubmit="event.preventDefault(); window.App.handleConfirmExitProject();">
+          <input type="hidden" id="exit-project-id" value="">
+          <div class="modal-body">
+            <div style="padding: 12px 14px; background: var(--bg-subtle); border-left: 3px solid var(--accent-amber); border-radius: var(--radius-sm); margin-bottom: 14px; font-size: 0.88rem; line-height: 1.45;">
+              Are you sure you want to exit <strong id="exit-project-name-target">this project</strong>?
+              <div style="margin: 8px 0 0; color: var(--text-muted); font-size: 0.82rem; line-height: 1.5;">
+                • You will no longer see this project or its tasks on your dashboard.<br>
+                • The project owner will be notified of your departure.<br>
+                • You can only rejoin if re-invited or using the project join code.
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" onclick="window.App.closeModal('modal-exit-project');">Stay in Project</button>
+            <button type="submit" class="btn btn-danger">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              <span>Confirm & Exit Project</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div id="modal-firebase-help" class="modal-backdrop">
+      <div class="modal-card modal-md">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-badge-icon">🔥</span>
+            <div>
+              <h3>Firebase Production Backend Setup</h3>
+              <p class="modal-subtitle">Connect real Google OAuth, Phone SMS OTP, and Cloud Firestore in 3 steps</p>
+            </div>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-firebase-help');">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="setup-steps-list">
+            <div class="setup-step-card">
+              <div class="step-num">1</div>
+              <div class="step-details">
+                <strong>Create a Firebase Project</strong>
+                <p>Visit <a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer" style="color:var(--primary-color);font-weight:600;">console.firebase.google.com</a> and click <em>Add Project</em> (e.g. <code>pulsepm-app</code>).</p>
+              </div>
+            </div>
+
+            <div class="setup-step-card">
+              <div class="step-num">2</div>
+              <div class="step-details">
+                <strong>Enable Authentication & Firestore</strong>
+                <p>In Firebase Console:
+                  <br>• <strong>Authentication → Sign-in method</strong>: Enable <em>Google</em>, <em>Phone</em>, and <em>Email/Password</em>.
+                  <br>• <strong>Firestore Database</strong>: Click <em>Create database</em> in <em>Test Mode</em>.
+                </p>
+              </div>
+            </div>
+
+            <div class="setup-step-card">
+              <div class="step-num">3</div>
+              <div class="step-details">
+                <strong>Paste Config into <code>firebase-config.js</code></strong>
+                <p>Go to <strong>Project Settings → Your apps → Web app (&lt;/&gt;)</strong>, copy the config values, and paste them into <code style="background:var(--surface-hover);padding:2px 6px;border-radius:4px;">firebase-config.js</code>.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="unified-notice" style="margin-top: 16px; padding: 12px; background: var(--surface-hover); border-radius: 8px; font-size: 0.82rem; color: var(--text-secondary);">
+            ✨ <strong>Account Linking Active:</strong> PulsePM is built to automatically link Google, Phone Number, and Email accounts into the exact same user record via Firebase <code>linkWithCredential</code>.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" onclick="window.App.closeModal('modal-firebase-help');">Got It!</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GOOGLE FIRST-TIME PASSWORD SETUP MODAL -->
+    <div id="modal-setup-password" class="modal-backdrop">
+      <div class="modal-card modal-sm">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-badge-icon">🔐</span>
+            <div>
+              <h3 id="modal-password-title">Set Up Account Password</h3>
+              <p class="modal-subtitle" id="modal-password-sub">Log in using either Google or your email & password</p>
+            </div>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-setup-password');">✕</button>
+        </div>
+        <form id="form-setup-password" onsubmit="event.preventDefault(); window.App.handleSaveFirstTimePassword();">
+          <div class="modal-body">
+            <div id="setup-password-info-alert" class="info-alert" style="margin-bottom: 16px; padding: 10px 12px; background: var(--surface-hover); border-left: 3px solid var(--primary-color); border-radius: 4px; font-size: 0.82rem; line-height: 1.4;">
+              👋 Create a password now so you can also sign in anytime using your email: <strong id="setup-password-email">alex.morgan@gmail.com</strong>
+            </div>
+
+            <div class="form-group">
+              <label for="setup-password-input">New Password <span class="required">*</span></label>
+              <div class="input-with-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <input type="password" id="setup-password-input" minlength="6" placeholder="At least 6 characters" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="setup-password-confirm">Confirm Password <span class="required">*</span></label>
+              <div class="input-with-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <input type="password" id="setup-password-confirm" minlength="6" placeholder="Re-enter password" required>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="window.App.closeModal('modal-setup-password');">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="btn-save-password">Save Password</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  </div><!-- /#app -->
+
+  <!-- NOTIFICATION DRAWER -->
+  <div id="notif-overlay" class="notif-overlay" onclick="window.App.closeNotificationDrawer()"></div>
+  <aside id="notif-drawer" class="notif-drawer" role="dialog" aria-label="Notifications">
+    <div class="notif-drawer-header">
+      <div class="notif-drawer-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span>Notifications</span>
+      </div>
+      <div class="notif-drawer-actions">
+        <button class="notif-mark-all-btn" onclick="window.App.markAllNotificationsRead()">Mark all read</button>
+        <button class="notif-close-btn" onclick="window.App.closeNotificationDrawer()" title="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="notif-list" class="notif-list"></div>
+  </aside>
+
+  <!-- FIREBASE SDKs (v10 Compat CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
