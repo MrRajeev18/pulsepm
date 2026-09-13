@@ -1135,6 +1135,20 @@
                 }
               });
 
+              (project.chats || []).forEach(c => {
+                if (c.senderId === 'system') return;
+                if ((m.id && c.senderId === m.id) || (m.name && c.senderName && m.name.toLowerCase() === c.senderName.toLowerCase())) {
+                  if (latestAvatar && c.senderAvatar !== latestAvatar) {
+                    c.senderAvatar = latestAvatar;
+                    changed = true;
+                  }
+                  if (latestName && c.senderName !== latestName) {
+                    c.senderName = latestName;
+                    changed = true;
+                  }
+                }
+              });
+
               if (changed) {
                 saveState();
                 if (state.activeProjectId === project.id) {
@@ -1142,6 +1156,9 @@
                   renderProjectOverview(project);
                   renderProjectTasks(project);
                   renderMyProjectTasks(project);
+                  if (state.activeProjectTab === 'chats') {
+                    renderProjectChats(project);
+                  }
                 }
               }
             }
@@ -1431,6 +1448,18 @@
             if (t.assigneeName !== newName || t.assigneeAvatar !== avatar) {
               t.assigneeName = newName;
               t.assigneeAvatar = avatar;
+              hasChanges = true;
+            }
+          }
+        });
+        (p.chats || []).forEach(c => {
+          if (c.senderId === 'system') return;
+          const isSender = (c.senderId && userId && c.senderId === userId) ||
+            (c.senderName && state.currentUser && c.senderName.toLowerCase() === (state.currentUser.name || '').toLowerCase());
+          if (isSender) {
+            if (c.senderName !== newName || c.senderAvatar !== avatar) {
+              c.senderName = newName;
+              c.senderAvatar = avatar;
               hasChanges = true;
             }
           }
@@ -5835,21 +5864,43 @@
           </div>
         `;
       } else {
-        const senderMember = (project.members || []).find(m =>
-          (m.id && m.id === msg.senderId) ||
-          (m.name && msg.senderName && m.name.toLowerCase() === msg.senderName.toLowerCase())
-        ) || { id: msg.senderId, name: msg.senderName, avatar: msg.senderAvatar };
-        const senderPresence = getMemberPresence(senderMember);
+        const isSelf = isOwn || Boolean(
+          state.currentUser && (
+            (msg.senderId && (msg.senderId === state.currentUser.id || msg.senderId === state.currentUser.uid)) ||
+            (msg.senderName && state.currentUser.name && msg.senderName.toLowerCase() === state.currentUser.name.toLowerCase())
+          )
+        );
+
+        let senderMember = null;
+        if (project.members) {
+          senderMember = project.members.find(m =>
+            (m.id && msg.senderId && m.id === msg.senderId) ||
+            (isSelf && (m.id === state.currentUser?.id || (m.email && state.currentUser?.email && m.email.toLowerCase() === state.currentUser.email.toLowerCase()))) ||
+            (m.name && msg.senderName && m.name.toLowerCase() === msg.senderName.toLowerCase())
+          );
+        }
+
+        const liveAvatar = (isSelf && state.currentUser?.avatar) ||
+          (senderMember && senderMember.avatar) ||
+          (msg.senderId && localStorage.getItem('pulsepm_custom_avatar_' + msg.senderId)) ||
+          msg.senderAvatar;
+
+        const liveName = (isSelf && state.currentUser?.name) ||
+          (senderMember && senderMember.name) ||
+          (msg.senderId && localStorage.getItem('pulsepm_custom_name_' + msg.senderId)) ||
+          msg.senderName;
+
+        const senderPresence = getMemberPresence(senderMember || (isSelf ? state.currentUser : { id: msg.senderId, name: liveName, avatar: liveAvatar }));
 
         html += `
-          <div class="chat-message-item ${isOwn ? 'own' : ''}">
+          <div class="chat-message-item ${isSelf ? 'own' : ''}">
             <div class="chat-avatar-wrap">
-              <div class="chat-avatar" title="${escapeHtml(msg.senderName)}">${renderAvatarInnerHtml(msg.senderAvatar, msg.senderName)}</div>
+              <div class="chat-avatar" title="${escapeHtml(liveName)}">${renderAvatarInnerHtml(liveAvatar, liveName)}</div>
               <span class="presence-dot ${senderPresence.status}" title="${escapeHtml(senderPresence.tooltip)}"></span>
             </div>
             <div class="chat-body">
               <div class="chat-sender-info">
-                <span class="chat-sender-name">${escapeHtml(msg.senderName)}</span>
+                <span class="chat-sender-name">${escapeHtml(liveName)}</span>
                 <span class="chat-timestamp">${escapeHtml(msg.timestamp)}</span>
               </div>
               <div class="chat-bubble">${formatChatMentions(escapeHtml(msg.text))}</div>
