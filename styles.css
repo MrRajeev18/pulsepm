@@ -6163,19 +6163,129 @@ body.dark .badge-reassign-locked {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
   gap: 8px;
   background: var(--bg-subtle, #f8fafc);
-  padding: 6px 10px;
+  padding: 5px 10px;
   border-radius: var(--radius-md, 8px);
   border: 1px solid var(--border-color, #e2e8f0);
+  min-height: 38px;
+  box-sizing: border-box;
+}
+
+.meta-assignee-row .card-assignee {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.meta-assignee-row .card-assignee-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.meta-assignee-row .card-assignee-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 125px;
 }
 
 .meta-assignee-actions {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
+}
+
+.meta-assignee-actions .task-detail-reassign-select {
+  padding: 3px 8px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: var(--radius-sm, 6px);
+  background-color: var(--bg-card, #ffffff);
+  color: var(--text-main, #0f172a);
+  max-width: 140px;
+  height: 28px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.meta-assignee-actions .task-detail-reassign-select:hover {
+  border-color: var(--primary, #4f46e5);
+}
+
+/* Dedicated Created By Row */
+.meta-creator-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-subtle, #f8fafc);
+  padding: 5px 10px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color, #e2e8f0);
+  min-height: 38px;
+  box-sizing: border-box;
+}
+
+.meta-creator-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--primary, #4f46e5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.meta-creator-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.meta-creator-details {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
   flex-wrap: wrap;
+}
+
+.meta-creator-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.meta-creator-role {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary, #4f46e5);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  white-space: nowrap;
 }
 
 .task-desc-container {
@@ -6254,9 +6364,27 @@ body.dark .meta-section-status {
 body.dark .meta-date-chip,
 body.dark .task-creator-pill,
 body.dark .meta-assignee-row,
+body.dark .meta-creator-row,
 body.dark .subtask-empty-hint {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.09);
+}
+
+body.dark .meta-creator-avatar {
+  background: rgba(99, 102, 241, 0.25);
+  color: #a5b4fc;
+}
+
+body.dark .meta-creator-role {
+  background: rgba(99, 102, 241, 0.2);
+  color: #c7d2fe;
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+body.dark .meta-assignee-actions .task-detail-reassign-select {
+  background-color: #1e293b;
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #f1f5f9;
 }
 
 body.dark .meta-date-chip.completed {

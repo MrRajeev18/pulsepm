@@ -4360,11 +4360,14 @@
       modalEl.dataset.taskId = task.id;
     }
 
-    // Render Creator Name (resolving actual member name and role)
+    // Render Creator (resolving actual member avatar, name, and role badge)
     const creatorEl = document.getElementById('task-detail-creator-name');
+    const creatorRoleEl = document.getElementById('task-detail-creator-role');
+    const creatorAvatarEl = document.getElementById('task-detail-creator-avatar');
     if (creatorEl) {
       let resolvedName = '';
       let resolvedRole = '';
+      let resolvedAvatar = null;
 
       // 1. Check project members by creatorId, createdBy, or creatorEmail
       if (project && Array.isArray(project.members)) {
@@ -4376,12 +4379,14 @@
         if (foundMem) {
           resolvedName = foundMem.name || '';
           resolvedRole = foundMem.role || '';
+          if (foundMem.avatar) resolvedAvatar = foundMem.avatar;
         }
       }
 
       // 2. Check task.creatorName if present and not placeholder
       if (!resolvedName && task.creatorName && task.creatorName !== 'Project Lead') {
         resolvedName = task.creatorName;
+        if (task.creatorAvatar) resolvedAvatar = task.creatorAvatar;
       }
 
       // 3. Check collaborators
@@ -4393,6 +4398,7 @@
         if (foundCollab) {
           resolvedName = foundCollab.name || '';
           resolvedRole = foundCollab.role || '';
+          if (foundCollab.avatar) resolvedAvatar = foundCollab.avatar;
         }
       }
 
@@ -4406,6 +4412,7 @@
         if (ownerMem) {
           resolvedName = ownerMem.name || '';
           resolvedRole = ownerMem.role || '';
+          if (ownerMem.avatar) resolvedAvatar = ownerMem.avatar;
         }
       }
 
@@ -4418,6 +4425,7 @@
             (!task.creatorId && !task.creatorEmail)) {
           resolvedName = state.currentUser.name;
           resolvedRole = state.currentUser.role || '';
+          if (state.currentUser.avatar) resolvedAvatar = state.currentUser.avatar;
         }
       }
 
@@ -4428,11 +4436,19 @@
         resolvedName = task.creatorName || (state.currentUser ? state.currentUser.name : 'Team Member');
       }
 
-      // Format with both Name and Role if available: e.g. "Rajeev ranjan (Project Lead)" or "Rajeev ranjan"
-      if (resolvedRole && !resolvedName.toLowerCase().includes(resolvedRole.toLowerCase())) {
-        creatorEl.innerText = `${resolvedName} (${resolvedRole})`;
-      } else {
-        creatorEl.innerText = resolvedName;
+      creatorEl.innerText = resolvedName;
+
+      if (creatorRoleEl) {
+        if (resolvedRole) {
+          creatorRoleEl.innerText = resolvedRole;
+          creatorRoleEl.style.display = 'inline-flex';
+        } else {
+          creatorRoleEl.style.display = 'none';
+        }
+      }
+
+      if (creatorAvatarEl) {
+        setAvatarElementContent(creatorAvatarEl, resolvedAvatar, resolvedName || '👤');
       }
     }
 

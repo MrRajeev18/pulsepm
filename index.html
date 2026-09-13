@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=3.4">
+  <link rel="stylesheet" href="styles.css?v=3.5">
 </head>
 <body>
   <div id="app" class="app-root">
@@ -1060,22 +1060,29 @@
               </div>
             </div>
 
-            <!-- Right Column: Assigned Member & Creator -->
+            <!-- Right Column: Assigned Member & Creator (2 Balanced Rows) -->
             <div class="meta-card-section meta-section-people">
-              <div class="meta-field" style="width: 100%;">
-                <div class="meta-field-header">
-                  <span class="meta-field-label">Assigned Member</span>
-                  <div class="task-creator-pill" id="task-detail-creator-container" title="Task Creator">
-                    <span class="creator-label">Created by:</span>
-                    <span id="task-detail-creator-name" class="creator-name">--</span>
-                  </div>
-                </div>
+              <!-- Field 1: Assigned Member -->
+              <div class="meta-field">
+                <span class="meta-field-label">Assigned Member</span>
                 <div class="meta-assignee-row">
                   <div id="task-detail-assignee-box" class="card-assignee">
                     <div id="task-detail-assignee-avatar" class="card-assignee-avatar">--</div>
                     <span id="task-detail-assignee-name" class="card-assignee-name">--</span>
                   </div>
                   <div id="task-detail-assignee-actions" class="meta-assignee-actions"></div>
+                </div>
+              </div>
+
+              <!-- Field 2: Created By (Dedicated row matching Timeline) -->
+              <div class="meta-field">
+                <span class="meta-field-label">Created By</span>
+                <div class="meta-creator-row" id="task-detail-creator-container" title="Task Creator">
+                  <div class="meta-creator-avatar" id="task-detail-creator-avatar">👤</div>
+                  <div class="meta-creator-details">
+                    <span id="task-detail-creator-name" class="meta-creator-name">--</span>
+                    <span id="task-detail-creator-role" class="meta-creator-role" style="display: none;">--</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1949,6 +1956,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="app.js?v=3.4"></script>
+  <script src="app.js?v=3.5"></script>
 </body>
 </html>
