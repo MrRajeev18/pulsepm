@@ -3832,6 +3832,45 @@ input:checked + .slider:before {
   transform: translateX(20px);
 }
 
+/* Settings Danger Zone & Account Deletion */
+.settings-danger-zone {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.04);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+}
+
+[data-theme="dark"] .settings-danger-zone {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.28);
+}
+
+.settings-danger-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.danger-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.delete-account-warning-card {
+  padding: 12px 14px;
+  background: rgba(239, 68, 68, 0.07);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+
+[data-theme="dark"] .delete-account-warning-card {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
 /* ==========================================================================
    Toast Notification
    ========================================================================== */

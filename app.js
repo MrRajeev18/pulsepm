@@ -5797,72 +5797,6 @@
 
     // Fire @mention notifications
     notifyMentions(project, text);
-
-    // Optional simulated teammate response
-    if (state.enableChatBot && project.members.length > 1) {
-      setTimeout(() => {
-        simulateTeammateReply(project, text);
-      }, 1200);
-    }
-  }
-
-  function simulateTeammateReply(project, userText) {
-    // Pick another member in project
-    const otherMembers = project.members.filter(m => m.id !== state.currentUser.id);
-    if (otherMembers.length === 0) return;
-
-    const responder = otherMembers[Math.floor(Math.random() * otherMembers.length)];
-
-    const replies = [
-      `Thanks for the update Alex! I am taking a look at that right now.`,
-      `Agreed, let's make sure this stays aligned with our target deadline.`,
-      `Awesome! I'll update my task notes accordingly.`,
-      `Sounds good, ping me if you need another review or pairing session on this.`,
-      `Got it! Working on the next milestone as scheduled.`
-    ];
-    const replyText = replies[Math.floor(Math.random() * replies.length)];
-
-    const isChatCurrentlyOpen = isCurrentChatOpen(project.id);
-    const replyMsg = {
-      id: 'msg-' + Date.now(),
-      senderId: responder.id,
-      senderEmail: responder.email || '',
-      senderName: responder.name,
-      senderAvatar: responder.avatar,
-      text: replyText,
-      timestamp: 'Just now',
-      isOwn: false,
-      readBy: [responder.id]
-    };
-    if (isChatCurrentlyOpen && state.currentUser) {
-      const myId = state.currentUser.id || state.currentUser.uid;
-      if (myId && !replyMsg.readBy.includes(myId)) replyMsg.readBy.push(myId);
-    }
-
-    project.chats.push(replyMsg);
-
-    // In-app notification for current user
-    createNotification({
-      type: 'chat_message',
-      recipientId: state.currentUser.id,
-      projectId: project.id,
-      message: `💬 ${responder.name} in ${project.name}: "${replyText.slice(0, 60)}${replyText.length > 60 ? '…' : ''}"`
-    });
-
-    // Desktop push alert
-    sendDesktopNotification({
-      title: `${responder.name} (${project.name})`,
-      body: replyText,
-      projectId: project.id
-    });
-
-    saveState();
-    syncProjectToFirestore(project);
-    if (state.activeProjectId === project.id && state.activeProjectTab === 'chats') {
-      renderProjectChats(project);
-    } else {
-      updateChatTabBadge(project);
-    }
   }
 
   function scrollChatToBottom() {
@@ -9053,29 +8987,197 @@
     if (themeBtn) {
       themeBtn.innerHTML = state.theme === 'dark' ? '<span>☀️ Light Mode</span>' : '<span>🌙 Dark Mode</span>';
     }
-    const chatBotCheckbox = document.getElementById('setting-chat-bot');
-    if (chatBotCheckbox) {
-      chatBotCheckbox.checked = Boolean(state.enableChatBot);
-    }
     openModal('modal-settings');
   }
 
   function handleToggleChatBot(checked) {
-    state.enableChatBot = Boolean(checked);
-    localStorage.setItem('pulsepm_chatbot_explicit_config', 'true');
-    saveState();
-    showToast(state.enableChatBot ? 'Simulated teammate responses enabled.' : 'Simulated teammate responses disabled.', 'info');
+    // Deprecated: simulated teammate responses removed
   }
 
   function handleSaveSettings() {
-    const chatBotCheckbox = document.getElementById('setting-chat-bot');
-    if (chatBotCheckbox) {
-      state.enableChatBot = Boolean(chatBotCheckbox.checked);
-      localStorage.setItem('pulsepm_chatbot_explicit_config', 'true');
-    }
     saveState();
     closeModal('modal-settings');
     showToast('Settings saved successfully.', 'success');
+  }
+
+  // =========================================================
+  // DELETED ACCOUNTS ARCHIVE DATASET & ACCOUNT DELETION
+  // =========================================================
+  const DELETED_ACCOUNTS_STORAGE_KEY = 'pulsepm_deleted_accounts';
+
+  function getDeletedAccountsDataset() {
+    try {
+      const raw = localStorage.getItem(DELETED_ACCOUNTS_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      console.warn('Could not read deleted accounts dataset:', e);
+      return [];
+    }
+  }
+
+  function saveToDeletedAccountsDataset(user, reason = 'User initiated account deletion') {
+    if (!user) return null;
+    const userId = user.id || user.uid || ('usr-del-' + Date.now());
+    const userEmail = (user.identities && user.identities.email) || user.email || '';
+
+    // Count associated projects
+    const associatedProjects = (state.projects || []).filter(p =>
+      (p.creatorId === userId) ||
+      (p.members || []).some(m => (m.id === userId) || (m.email && userEmail && m.email.toLowerCase() === userEmail.toLowerCase()))
+    );
+
+    const archivedRecord = {
+      id: userId,
+      uid: user.uid || userId,
+      name: user.name || 'User',
+      email: userEmail,
+      avatar: user.avatar || '',
+      phone: user.phone || localStorage.getItem('pulsepm_custom_phone_' + userId) || '',
+      role: user.role || 'Member',
+      identities: user.identities || {},
+      hasPasswordSet: Boolean(user.hasPasswordSet),
+      deletedAt: new Date().toISOString(),
+      deletedTimestamp: Date.now(),
+      deletionReason: reason,
+      associatedProjectsCount: associatedProjects.length,
+      associatedProjectIds: associatedProjects.map(p => p.id),
+      status: 'archived_deleted'
+    };
+
+    // 1. Save to separate localStorage dataset
+    try {
+      const dataset = getDeletedAccountsDataset();
+      const existingIdx = dataset.findIndex(d => d.id === userId || (d.email && userEmail && d.email.toLowerCase() === userEmail.toLowerCase()));
+      if (existingIdx > -1) {
+        dataset[existingIdx] = archivedRecord;
+      } else {
+        dataset.unshift(archivedRecord);
+      }
+      localStorage.setItem(DELETED_ACCOUNTS_STORAGE_KEY, JSON.stringify(dataset));
+      localStorage.setItem('pulsepm_deleted_account_' + userId, JSON.stringify(archivedRecord));
+    } catch (err) {
+      console.warn('Failed to save to localStorage deleted accounts dataset:', err);
+    }
+
+    // 2. Save to Firestore separate dataset: collection 'deleted_accounts'
+    if (isFirebaseLive && firebaseDb) {
+      try {
+        firebaseDb.collection('deleted_accounts').doc(userId).set(archivedRecord)
+          .catch(e => console.warn('Could not archive deleted account to Firestore deleted_accounts collection:', e));
+        // Remove from active users collection
+        firebaseDb.collection('users').doc(userId).delete()
+          .catch(e => console.warn('Could not remove user from active users collection:', e));
+      } catch (err) {
+        console.warn('Firestore deletion error:', err);
+      }
+    }
+
+    return archivedRecord;
+  }
+
+  function openDeleteAccountModal() {
+    closeModal('modal-settings');
+    const user = state.currentUser;
+    const emailEl = document.getElementById('delete-account-user-email');
+    if (emailEl && user) {
+      emailEl.innerText = (user.identities && user.identities.email) || user.email || user.name || 'your account';
+    }
+    const inputEl = document.getElementById('input-confirm-delete-account');
+    if (inputEl) {
+      inputEl.value = '';
+    }
+    const btnConfirm = document.getElementById('btn-confirm-delete-account');
+    if (btnConfirm) {
+      btnConfirm.disabled = true;
+      btnConfirm.style.opacity = '0.5';
+      btnConfirm.style.cursor = 'not-allowed';
+    }
+    openModal('modal-confirm-delete-account');
+  }
+
+  function onDeleteAccountInputChange(val) {
+    const btnConfirm = document.getElementById('btn-confirm-delete-account');
+    if (!btnConfirm) return;
+    const isMatched = (val || '').trim() === 'DELETE';
+    btnConfirm.disabled = !isMatched;
+    btnConfirm.style.opacity = isMatched ? '1' : '0.5';
+    btnConfirm.style.cursor = isMatched ? 'pointer' : 'not-allowed';
+  }
+
+  function handleConfirmDeleteAccount() {
+    const user = state.currentUser;
+    if (!user) return;
+
+    const inputEl = document.getElementById('input-confirm-delete-account');
+    if (inputEl && inputEl.value.trim() !== 'DELETE') {
+      showToast('Please type "DELETE" to confirm account deletion.', 'warning');
+      return;
+    }
+
+    const userId = user.id || user.uid;
+    const userName = user.name || 'User';
+
+    // 1. Archive to separate dataset
+    saveToDeletedAccountsDataset(user, 'User initiated account deletion');
+
+    // 2. Attempt Firebase Auth delete if live
+    if (isFirebaseLive && firebaseAuth && firebaseAuth.currentUser) {
+      try {
+        firebaseAuth.currentUser.delete().catch(err => {
+          console.warn('Firebase auth delete error (proceeding with local session cleanup):', err);
+        });
+      } catch(e) {}
+    }
+
+    // 3. Remove user from project members in active state
+    if (state.projects && state.projects.length > 0) {
+      state.projects.forEach(p => {
+        if (p.members) {
+          p.members = p.members.filter(m => m.id !== userId && m.email !== user.email);
+        }
+        if (p.specialAssigners) {
+          p.specialAssigners = p.specialAssigners.filter(id => id !== userId);
+        }
+        if (p.specialInviters) {
+          p.specialInviters = p.specialInviters.filter(id => id !== userId);
+        }
+      });
+    }
+
+    // 4. Clean up user credentials from active localStorage
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('pulsepm_custom_name_' + userId);
+      localStorage.removeItem('pulsepm_custom_avatar_' + userId);
+      localStorage.removeItem('pulsepm_custom_phone_' + userId);
+      localStorage.removeItem('pulsepm_custom_phone_demo');
+      localStorage.removeItem('pulsepm_pwd_set_demo');
+      localStorage.removeItem('pulsepm_user_id');
+      localStorage.removeItem('pulsepm_user_email');
+      localStorage.removeItem('pulsepm_chatbot_explicit_config');
+    } catch (e) {}
+
+    // 5. Reset application session
+    state.isLoggedIn = false;
+    state.currentUser = null;
+    state.activeProjectId = null;
+    state.projects = [];
+    state.collaborators = [];
+    state.notifications = [];
+
+    closeAllModals();
+    closeProfileMenu();
+
+    // 6. Redirect to Auth screen
+    document.getElementById('main-app').style.display = 'none';
+    document.getElementById('auth-view').style.display = 'flex';
+
+    const gmailInput = document.getElementById('gmail-input');
+    const pwdInput = document.getElementById('gmail-password');
+    if (gmailInput) gmailInput.value = '';
+    if (pwdInput) pwdInput.value = '';
+
+    showToast(`Account for ${userName} has been deleted. Profile information was securely saved to the deleted accounts dataset.`, 'success');
   }
 
   function toggleTheme() {
@@ -9500,6 +9602,11 @@
     getMyPendingProjectInvitations,
     renderDashboardInvitationsBanner,
     renderProjectApprovalSections,
+    openDeleteAccountModal,
+    onDeleteAccountInputChange,
+    handleConfirmDeleteAccount,
+    getDeletedAccountsDataset,
+    saveToDeletedAccountsDataset,
     state
   };
 
