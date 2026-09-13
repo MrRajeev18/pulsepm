@@ -2007,12 +2007,11 @@
     if (isAdmin) return true;
 
     // Option 1: Only Admin -> non-admins cannot invite
-    // Option 2: Admin + Themself -> non-admins cannot invite others
-    if (policy === 'admin_only' || policy === 'admin_and_self' || policy === 'creator_admin') {
+    if (policy === 'admin_only') {
       return false;
     }
 
-    // Option 3: Selected member -> designated special inviters can invite
+    // Option 2: Selected member -> designated special inviters can invite
     if (policy === 'specific_members') {
       const currentUid = user.id || user.uid;
       const memberObj = getProjectMemberForUser(project, user);
@@ -2609,9 +2608,6 @@
       let invCls = 'badge badge-success';
       if (project.memberInvitationPolicy === 'admin_only') {
         invLabel = 'Who can Invite: Only Admin';
-        invCls = 'badge badge-policy';
-      } else if (project.memberInvitationPolicy === 'admin_and_self' || project.memberInvitationPolicy === 'creator_admin') {
-        invLabel = 'Who can Invite: Admin + Themself';
         invCls = 'badge badge-policy';
       } else if (project.memberInvitationPolicy === 'specific_members') {
         invLabel = 'Who can Invite: Selected Member';

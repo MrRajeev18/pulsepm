@@ -783,14 +783,13 @@
               </div>
             </div>
 
-            <!-- MEMBER INVITATION PERMISSION SETTING (4 OPTIONS) -->
+            <!-- MEMBER INVITATION PERMISSION SETTING (3 OPTIONS) -->
             <div class="form-group" style="margin-top: 14px;">
               <label for="project-invite-permission-select">Who Can Invite Members? <span class="required">*</span></label>
               <select id="project-invite-permission-select" onchange="window.App.toggleSpecialInviterField(this.value)" required>
                 <option value="admin_only">1. Only Admin (Only creator of the project can invite)</option>
-                <option value="admin_and_self">2. Admin + Themself (Creator can invite all & members can invite for themself)</option>
-                <option value="specific_members">3. Selected member (Admin and Selected members can invite)</option>
-                <option value="anyone" selected>4. Everyone (Everyone can invite members)</option>
+                <option value="specific_members">2. Selected member (Admin and Selected members can invite)</option>
+                <option value="anyone" selected>3. Everyone (Everyone can invite members)</option>
               </select>
               <small class="field-hint">💡 Control who is authorized to invite new members or collaborators to this project.</small>
             </div>
@@ -1384,9 +1383,8 @@
               <label for="edit-project-invite-policy">Who can invite members? (Member Invitation) <span class="required">*</span></label>
               <select id="edit-project-invite-policy" class="form-control" onchange="window.App.toggleEditProjectInvitePolicy(this.value);" required>
                 <option value="admin_only">1. Only Admin (Only creator of the project can invite)</option>
-                <option value="admin_and_self">2. Admin + Themself (Creator can invite all & members can invite for themself)</option>
-                <option value="specific_members">3. Selected member (Admin and Selected members can invite)</option>
-                <option value="anyone">4. Everyone (Everyone can invite members)</option>
+                <option value="specific_members">2. Selected member (Admin and Selected members can invite)</option>
+                <option value="anyone">3. Everyone (Everyone can invite members)</option>
               </select>
             </div>
 
@@ -1999,6 +1997,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="app.js?v=4.0"></script>
+  <script src="app.js?v=4.1"></script>
 </body>
 </html>
