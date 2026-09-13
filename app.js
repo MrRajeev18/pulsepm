@@ -5527,19 +5527,31 @@
 
     let html = '';
     project.chats.forEach(msg => {
-      const isOwn = msg.senderId === state.currentUser.id;
-      html += `
-        <div class="chat-message-item ${isOwn ? 'own' : ''}">
-          <div class="chat-avatar" title="${escapeHtml(msg.senderName)}">${renderAvatarInnerHtml(msg.senderAvatar, msg.senderName)}</div>
-          <div class="chat-body">
-            <div class="chat-sender-info">
-              <span class="chat-sender-name">${escapeHtml(msg.senderName)}</span>
-              <span class="chat-timestamp">${escapeHtml(msg.timestamp)}</span>
+      const isSystem = msg.senderId === 'system';
+      const isOwn = !isSystem && (msg.senderId === state.currentUser.id);
+      if (isSystem) {
+        html += `
+          <div class="chat-message-item chat-message-system">
+            <div class="chat-system-bubble">
+              ${formatChatMentions(escapeHtml(msg.text))}
+              <span class="chat-system-time">${escapeHtml(msg.timestamp || '')}</span>
             </div>
-            <div class="chat-bubble">${formatChatMentions(escapeHtml(msg.text))}</div>
           </div>
-        </div>
-      `;
+        `;
+      } else {
+        html += `
+          <div class="chat-message-item ${isOwn ? 'own' : ''}">
+            <div class="chat-avatar" title="${escapeHtml(msg.senderName)}">${renderAvatarInnerHtml(msg.senderAvatar, msg.senderName)}</div>
+            <div class="chat-body">
+              <div class="chat-sender-info">
+                <span class="chat-sender-name">${escapeHtml(msg.senderName)}</span>
+                <span class="chat-timestamp">${escapeHtml(msg.timestamp)}</span>
+              </div>
+              <div class="chat-bubble">${formatChatMentions(escapeHtml(msg.text))}</div>
+            </div>
+          </div>
+        `;
+      }
     });
 
     container.innerHTML = html;
@@ -5560,8 +5572,10 @@
 
   function formatChatMentions(escapedText) {
     if (!escapedText) return '';
+    // Format bold **text**
+    let formatted = escapedText.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     // Format @all
-    let formatted = escapedText.replace(/@all\b/gi, '<span class="chat-mention-pill chat-mention-all">@all</span>');
+    formatted = formatted.replace(/@all\b/gi, '<span class="chat-mention-pill chat-mention-all">@all</span>');
     // Format @[Name]
     formatted = formatted.replace(/@([A-Za-z0-9_\.\-]+(?:\s[A-Za-z0-9_\.\-]+)?)/g, (match, name) => {
       if (name.toLowerCase() === 'all') return match;
@@ -6826,9 +6840,12 @@
     // Remove from members
     project.members.splice(memberIndex, 1);
 
-    // Remove from special assigners if present
+    // Remove from special assigners and inviters if present
     if (project.specialAssigners) {
       project.specialAssigners = project.specialAssigners.filter(id => id !== currentUserId && id !== memberIdToRemove);
+    }
+    if (project.specialInviters) {
+      project.specialInviters = project.specialInviters.filter(id => id !== currentUserId && id !== memberIdToRemove);
     }
 
     // Unassign tasks assigned to this user
@@ -6851,16 +6868,49 @@
       icon: 'member'
     });
 
-    // Notify project creator/owner
-    if (project.creatorId && project.creatorId !== currentUserId) {
+    // Add system notification message to project chat
+    if (!project.chats) project.chats = [];
+    project.chats.push({
+      id: 'msg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+      senderId: 'system',
+      userId: 'system',
+      senderName: 'System Notice',
+      userName: 'System Notice',
+      senderAvatar: '👋',
+      userAvatar: '👋',
+      text: `👋 **Member Departure**: ${currentUserName} has exited the project.`,
+      timestamp: 'Just now',
+      isOwn: false,
+      readBy: []
+    });
+
+    // Notify all remaining members of this project and creator
+    const remainingRecipients = new Set();
+    (project.members || []).forEach(m => {
+      if (m.id && m.id !== currentUserId && m.id !== memberIdToRemove) {
+        remainingRecipients.add(m.id);
+      }
+    });
+    if (project.creatorId && project.creatorId !== currentUserId && project.creatorId !== memberIdToRemove) {
+      remainingRecipients.add(project.creatorId);
+    }
+    remainingRecipients.forEach(recipientId => {
+      const memObj = (project.members || []).find(m => m.id === recipientId);
       createNotification({
         type: 'member_exited',
-        recipientId: project.creatorId,
+        recipientId: recipientId,
+        recipientEmail: memObj ? memObj.email : null,
         projectId: project.id,
         taskId: null,
         message: `👋 ${currentUserName} has exited project "${projectName}".`
       });
-    }
+    });
+
+    sendDesktopNotification({
+      title: `👋 Member Departure · ${projectName}`,
+      body: `${currentUserName} has exited the project.`,
+      projectId: project.id
+    });
 
     saveState();
     syncProjectToFirestore(project);
@@ -7949,6 +7999,7 @@
                          n.type === 'project_broadcast' ? '📢' :
                          n.type === 'project_deleted' ? '⚠️' :
                          n.type === 'member_exited' ? '👋' :
+                         n.type === 'member_deleted_account' ? '⚠️' :
                          n.type === 'join_request' ? '🙋' :
                          n.type === 'join_request_approved' ? '🎉' :
                          n.type === 'join_request_declined' ? 'ℹ️' :
@@ -9164,6 +9215,7 @@
     }
 
     const userId = user.id || user.uid;
+    const userEmail = user.email || (user.identities && user.identities.email) || '';
     const userName = user.name || 'User';
 
     // 1. Archive to separate dataset
@@ -9178,24 +9230,110 @@
       } catch(e) {}
     }
 
-    // 3. Remove user from project members in active state
+    // 3. Process every project in which this user was involved
     if (state.projects && state.projects.length > 0) {
       state.projects.forEach(p => {
-        if (p.members) {
-          p.members = p.members.filter(m => m.id !== userId && m.email !== user.email);
-        }
-        if (p.specialAssigners) {
-          p.specialAssigners = p.specialAssigners.filter(id => id !== userId);
-        }
-        if (p.specialInviters) {
-          p.specialInviters = p.specialInviters.filter(id => id !== userId);
+        const isMember = (p.members || []).some(m =>
+          (m.id && m.id === userId) ||
+          (m.email && userEmail && m.email.trim().toLowerCase() === userEmail.trim().toLowerCase())
+        );
+        const isCreator = p.creatorId === userId;
+        const isOwner = p.ownerId === userId;
+        const hasAssignedTask = (p.tasks || []).some(t =>
+          (t.assigneeId && t.assigneeId === userId) ||
+          (t.assigneeEmail && userEmail && t.assigneeEmail.trim().toLowerCase() === userEmail.trim().toLowerCase())
+        );
+
+        const wasInvolved = isMember || isCreator || isOwner || hasAssignedTask;
+
+        if (wasInvolved) {
+          // Unassign tasks assigned to this user
+          if (p.tasks && Array.isArray(p.tasks)) {
+            p.tasks.forEach(t => {
+              if (
+                t.assigneeId === userId ||
+                (userEmail && t.assigneeEmail && t.assigneeEmail.trim().toLowerCase() === userEmail.trim().toLowerCase())
+              ) {
+                t.assigneeId = null;
+              }
+            });
+          }
+
+          // Remove user from members
+          if (p.members && Array.isArray(p.members)) {
+            p.members = p.members.filter(m =>
+              m.id !== userId &&
+              (!userEmail || !m.email || m.email.trim().toLowerCase() !== userEmail.trim().toLowerCase())
+            );
+          }
+          if (p.specialAssigners) {
+            p.specialAssigners = p.specialAssigners.filter(id => id !== userId);
+          }
+          if (p.specialInviters) {
+            p.specialInviters = p.specialInviters.filter(id => id !== userId);
+          }
+
+          // Add activity log to project
+          if (!p.activity) p.activity = [];
+          p.activity.unshift({
+            id: 'act-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+            text: `⚠️ ${userName} deleted their account and left the project.`,
+            time: 'Just now',
+            icon: 'member'
+          });
+
+          // Post system notification to project chat
+          if (!p.chats) p.chats = [];
+          p.chats.push({
+            id: 'msg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+            senderId: 'system',
+            userId: 'system',
+            senderName: 'System Notice',
+            userName: 'System Notice',
+            senderAvatar: '⚠️',
+            userAvatar: '⚠️',
+            text: `⚠️ **Account Deleted**: ${userName} has deleted their account and left the project.`,
+            timestamp: 'Just now',
+            isOwn: false,
+            readBy: []
+          });
+
+          // Send in-app notification to all remaining members of this project and creator
+          const remainingRecipients = new Set();
+          (p.members || []).forEach(m => {
+            if (m.id && m.id !== userId) remainingRecipients.add(m.id);
+          });
+          if (p.creatorId && p.creatorId !== userId) {
+            remainingRecipients.add(p.creatorId);
+          }
+          remainingRecipients.forEach(recipientId => {
+            const memObj = (p.members || []).find(m => m.id === recipientId);
+            createNotification({
+              type: 'member_deleted_account',
+              recipientId: recipientId,
+              recipientEmail: memObj ? memObj.email : null,
+              projectId: p.id,
+              taskId: null,
+              message: `⚠️ ${userName} has deleted their account and left project "${p.name}".`
+            });
+          });
+
+          sendDesktopNotification({
+            title: `⚠️ Account Deleted · ${p.name}`,
+            body: `${userName} has deleted their account and left the project.`,
+            projectId: p.id
+          });
+
+          syncProjectToFirestore(p);
         }
       });
     }
 
-    // 4. Clean up user credentials from active localStorage
+    // 4. Save updated project states, chats, and remaining member notifications
+    saveState();
+
+    // 5. Clean up user credentials from active localStorage
     try {
-      localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem('pulsepm_custom_name_' + userId);
       localStorage.removeItem('pulsepm_custom_avatar_' + userId);
       localStorage.removeItem('pulsepm_custom_phone_' + userId);
@@ -9206,13 +9344,11 @@
       localStorage.removeItem('pulsepm_chatbot_explicit_config');
     } catch (e) {}
 
-    // 5. Reset application session
+    // 6. Reset application session
     state.isLoggedIn = false;
     state.currentUser = null;
     state.activeProjectId = null;
-    state.projects = [];
-    state.collaborators = [];
-    state.notifications = [];
+    saveState();
 
     closeAllModals();
     closeProfileMenu();
