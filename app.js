@@ -1792,12 +1792,14 @@
         return true;
       }
 
-      // 3. If project has no creatorId specified, fallback to first member
+      // 3. If project has no creatorId specified, fallback to first member only if no explicit owner exists
       if (!project.creatorId && project.members.length > 0) {
-        const first = project.members[0];
-        if (first.id && userId && String(first.id) === String(userId)) return true;
-        if (first.email && userEmail && first.email.trim().toLowerCase() === userEmail) return true;
-        if (first.name && userName && isNameMatch(first.name, userName)) return true;
+        const hasExplicitOwner = project.members.some(m => ['owner', 'project lead', 'admin'].some(r => (m.role || '').toLowerCase().includes(r)));
+        if (!hasExplicitOwner) {
+          const first = project.members[0];
+          if (first.id && userId && String(first.id) === String(userId)) return true;
+          if (first.email && userEmail && first.email.trim().toLowerCase() === userEmail) return true;
+        }
       }
     }
 
@@ -1851,18 +1853,7 @@
 
   function isTaskAssignedToUser(task, user) {
     if (!task || !user) return false;
-    const userId = user.id || user.uid;
-    const userEmail = (
-      (user.identities && user.identities.email) ||
-      user.email ||
-      getCurrentUserEmail(user) ||
-      ''
-    ).trim().toLowerCase();
-
-    if (task.assigneeId && userId && task.assigneeId === userId) return true;
-    if (task.assigneeEmail && userEmail && task.assigneeEmail.trim().toLowerCase() === userEmail) return true;
-    if (task.assigneeName && user.name && task.assigneeName.trim().toLowerCase() === user.name.trim().toLowerCase()) return true;
-    return false;
+    return isTaskAssignee(task, user);
   }
 
   function isNameMatch(name1, name2) {
@@ -1870,12 +1861,18 @@
     const n1 = name1.trim().toLowerCase();
     const n2 = name2.trim().toLowerCase();
     if (n1 === n2) return true;
+
     const parts1 = n1.split(/\s+/).filter(Boolean);
     const parts2 = n2.split(/\s+/).filter(Boolean);
+
+    // Multi-token name matching (e.g. "Rajeev ranjan" vs "Rajeev ranjan Kumar")
     if (parts1.length >= 2 && parts2.length >= 2) {
       if (parts1[0] === parts2[0] && parts1[1] === parts2[1]) return true;
+      const shorter = parts1.length <= parts2.length ? parts1 : parts2;
+      const longer = parts1.length <= parts2.length ? parts2 : parts1;
+      if (shorter.every(word => longer.includes(word))) return true;
     }
-    if (n1.includes(n2) || n2.includes(n1)) return true;
+
     return false;
   }
 
@@ -1906,8 +1903,7 @@
     if (task.creatorId && userId && String(task.creatorId) === String(userId)) return true;
     if (task.createdBy && userId && String(task.createdBy) === String(userId)) return true;
     if (task.creatorEmail && userEmail && task.creatorEmail.trim().toLowerCase() === userEmail.trim().toLowerCase()) return true;
-    if (task.creatorName && userName && isNameMatch(task.creatorName, user.name)) return true;
-    if (task.creatorName && ['project lead', 'admin', 'owner'].some(r => task.creatorName.toLowerCase().includes(r)) && (isProjectAdmin(null, user) || isProjectOwner(null, user))) return true;
+    if (task.creatorName && userName && (task.creatorName.trim().toLowerCase() === userName || isNameMatch(task.creatorName, user.name))) return true;
 
     return false;
   }
@@ -2431,7 +2427,7 @@
     // Team Roster
     const rosterContainer = document.getElementById('project-team-roster');
     if (rosterContainer) {
-      const isCurrentUserCreator = (project.creatorId === state.currentUser.id) || (!project.creatorId);
+      const isCurrentUserCreator = isProjectCreator(project, state.currentUser);
       let rosterHtml = '';
       project.members.forEach(m => {
         const isMemberCreator = (project.creatorId === m.id) || (m.role === 'Owner');
@@ -4201,12 +4197,12 @@
   function isTaskAssignee(task, user) {
     if (!task || !user) return false;
     const userId = user.id || user.uid;
-    const userEmail = ((user.identities && user.identities.email) || user.email || '').trim().toLowerCase();
+    const userEmail = ((user.identities && user.identities.email) || user.email || getCurrentUserEmail(user) || '').trim().toLowerCase();
     const userName = (user.name || '').trim().toLowerCase();
 
-    if (task.assigneeId && userId && task.assigneeId === userId) return true;
+    if (task.assigneeId && userId && String(task.assigneeId) === String(userId)) return true;
     if (task.assigneeEmail && userEmail && task.assigneeEmail.trim().toLowerCase() === userEmail) return true;
-    if (task.assigneeName && userName && task.assigneeName.trim().toLowerCase() === userName) return true;
+    if (task.assigneeName && userName && (task.assigneeName.trim().toLowerCase() === userName || isNameMatch(task.assigneeName, user.name))) return true;
     return false;
   }
 
@@ -5313,8 +5309,7 @@
     const userEmail = getCurrentUserEmail(user);
 
     // 1. Project creator by ID or Email
-    if (!project.creatorId) return true;
-    if (userId && String(project.creatorId) === String(userId)) return true;
+    if (project.creatorId && userId && String(project.creatorId) === String(userId)) return true;
     if (project.creatorEmail && userEmail && project.creatorEmail.trim().toLowerCase() === userEmail) return true;
 
     // 2. Global user role
@@ -6387,6 +6382,11 @@
     const project = state.projects.find(p => p.id === state.activeProjectId);
     if (!project) return;
 
+    if (!isUserMemberOfProject(project, state.currentUser) && !isProjectAdmin(project, state.currentUser)) {
+      showToast('You must be a member of this project to create deliverables.', 'error');
+      return;
+    }
+
     const selfMember = getProjectMemberForUser(project, state.currentUser) || state.currentUser;
     const selfId = selfMember.id || state.currentUser.id;
     const selfName = selfMember.name || state.currentUser.name;
@@ -6456,6 +6456,11 @@
   function handleCreateTask() {
     const project = state.projects.find(p => p.id === state.activeProjectId);
     if (!project) return;
+
+    if (!isUserMemberOfProject(project, state.currentUser) && !isProjectAdmin(project, state.currentUser)) {
+      showToast('You must be a member of this project to create deliverables.', 'error');
+      return;
+    }
 
     const titleInput = document.getElementById('task-title-input');
     const descInput = document.getElementById('task-desc-input');
