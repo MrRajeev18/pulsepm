@@ -2572,16 +2572,16 @@
     const policyBadge = document.getElementById('detail-assignment-policy-badge');
     if (policyBadge) {
       const isOwnerOrAdmin = isProjectAdmin(project, state.currentUser) || isProjectOwner(project, state.currentUser);
-      let label = 'who can Assign: Everyone';
+      let label = 'Who can Assign: Everyone';
       let cls = 'badge badge-success';
       if (project.taskAssignmentPolicy === 'admin_only') {
-        label = 'who can Assign: Only Admin';
+        label = 'Who can Assign: Only Admin';
         cls = 'badge badge-policy';
       } else if (project.taskAssignmentPolicy === 'admin_and_self' || project.taskAssignmentPolicy === 'creator_admin') {
-        label = 'who can Assign: Admin + Themself';
+        label = 'Who can Assign: Admin + Themself';
         cls = 'badge badge-policy';
       } else if (project.taskAssignmentPolicy === 'specific_members') {
-        label = 'who can Assign: Selected Member';
+        label = 'Who can Assign: Selected Member';
         cls = 'badge badge-policy';
       }
 
@@ -2618,7 +2618,7 @@
         invitePolicyBadge.innerHTML = `${invLabel} <span style="margin-left: 4px; font-size: 0.72rem; opacity: 0.85;">✏️</span>`;
         invitePolicyBadge.style.cursor = 'pointer';
         invitePolicyBadge.setAttribute('title', 'Click to change who can invite members in this project');
-        invitePolicyBadge.onclick = () => window.App.openEditProjectDetailModal(project.id);
+        invitePolicyBadge.onclick = () => window.App.openInvitationPolicyModal(project.id);
       } else {
         invitePolicyBadge.innerHTML = invLabel;
         invitePolicyBadge.innerText = invLabel;
@@ -3893,6 +3893,150 @@
     renderProjectDetail(project);
     closeModal('modal-assignment-policy');
     showToast(`Task assignment permission updated to: ${formatPolicyName(policy)}`, 'success');
+  }
+
+  function openInvitationPolicyModal(projectId) {
+    const targetId = projectId || state.activeProjectId;
+    const project = state.projects.find(p => p.id === targetId);
+    if (!project) return;
+
+    if (!isProjectAdmin(project, state.currentUser) && !isProjectOwner(project, state.currentUser)) {
+      showToast('Permission denied. Admin privilege required.', 'error');
+      return;
+    }
+
+    const modal = document.getElementById('modal-invitation-policy');
+    const idInput = document.getElementById('invite-policy-project-id');
+    const select = document.getElementById('invite-policy-standalone-select');
+    const container = document.getElementById('invite-policy-members-container');
+    const checklist = document.getElementById('invite-policy-members-checklist');
+
+    if (!modal || !idInput || !select) return;
+
+    idInput.value = project.id;
+    select.value = project.memberInvitationPolicy || 'anyone';
+
+    const specialInviters = Array.isArray(project.specialInviters) ? project.specialInviters : [];
+    const members = Array.isArray(project.members) ? project.members : [];
+
+    let listHtml = '';
+    if (members.length === 0) {
+      listHtml = '<p class="text-muted" style="padding: 8px; font-size: 0.85rem;">No members in this project yet.</p>';
+    } else {
+      members.forEach(m => {
+        const isMemCreator = (project.creatorId === m.id) || (m.role === 'Owner') || (m.role === 'Project Lead');
+        const isChecked = specialInviters.includes(m.id) || isMemCreator;
+        listHtml += `
+          <label class="assigner-checkbox-item">
+            <input type="checkbox" value="${escapeHtml(m.id)}" class="invite-policy-member-cb" ${isChecked ? 'checked' : ''} ${isMemCreator ? 'disabled' : ''}>
+            <span>
+              <strong>${escapeHtml(m.name)}</strong> (${escapeHtml(m.role || 'Member')})
+              ${isMemCreator ? '<em style="color: var(--text-muted); font-size: 0.75rem; margin-left: 4px;">(Creator - Full Authority)</em>' : ''}
+            </span>
+          </label>
+        `;
+      });
+    }
+    if (checklist) checklist.innerHTML = listHtml;
+
+    if (container) {
+      container.style.display = select.value === 'specific_members' ? 'block' : 'none';
+    }
+
+    updateInvitePolicyNoticeText(select.value);
+    syncInvitePolicyCards(select.value);
+
+    openModal('modal-invitation-policy');
+  }
+
+  function selectInvitePolicyCard(val) {
+    const select = document.getElementById('invite-policy-standalone-select');
+    if (select) {
+      select.value = val;
+    }
+    toggleInvitePolicyMemberList(val);
+    syncInvitePolicyCards(val);
+  }
+
+  function syncInvitePolicyCards(val) {
+    const cards = document.querySelectorAll('#invite-policy-cards-grid .policy-card-option');
+    cards.forEach(card => {
+      const cardPolicy = card.getAttribute('data-policy');
+      if (cardPolicy === val) {
+        card.classList.add('selected');
+        card.setAttribute('aria-checked', 'true');
+      } else {
+        card.classList.remove('selected');
+        card.setAttribute('aria-checked', 'false');
+      }
+    });
+  }
+
+  function updateInvitePolicyNoticeText(val) {
+    const textEl = document.getElementById('invite-policy-notice-text');
+    if (!textEl) return;
+    if (val === 'admin_only') {
+      textEl.innerHTML = '<strong>1. Only Admin:</strong> Only the project creator and admins can invite members or share join codes. Regular members cannot add colleagues.';
+    } else if (val === 'specific_members') {
+      textEl.innerHTML = '<strong>2. Selected member:</strong> The creator, admins, and specifically chosen team members can invite new collaborators.';
+    } else {
+      textEl.innerHTML = '<strong>3. Everyone:</strong> All team members can invite colleagues and share join links freely across the team.';
+    }
+  }
+
+  function toggleInvitePolicyMemberList(val) {
+    const container = document.getElementById('invite-policy-members-container');
+    if (container) {
+      container.style.display = val === 'specific_members' ? 'block' : 'none';
+    }
+    updateInvitePolicyNoticeText(val);
+    syncInvitePolicyCards(val);
+  }
+
+  function handleSaveInvitationPolicy(e) {
+    if (e) e.preventDefault();
+    const idInput = document.getElementById('invite-policy-project-id');
+    const select = document.getElementById('invite-policy-standalone-select');
+    if (!idInput || !select) return;
+
+    const projectId = idInput.value;
+    const project = state.projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    if (!isProjectAdmin(project, state.currentUser) && !isProjectOwner(project, state.currentUser)) {
+      showToast('Permission denied. Admin privilege required.', 'error');
+      return;
+    }
+
+    const policy = select.value; // 'admin_only' | 'specific_members' | 'anyone'
+    const inviters = [];
+    if (policy === 'specific_members') {
+      const cbs = document.querySelectorAll('.invite-policy-member-cb:checked');
+      cbs.forEach(cb => inviters.push(cb.value));
+    }
+
+    project.memberInvitationPolicy = policy;
+    project.specialInviters = inviters;
+
+    if (!project.activity) project.activity = [];
+    project.activity.unshift({
+      id: 'act-' + Date.now(),
+      text: `${state.currentUser.name} updated member invitation permission to: ${formatInvitationPolicyName(policy)}`,
+      time: 'Just now',
+      icon: 'shield'
+    });
+
+    saveState();
+    syncProjectToFirestore(project);
+    renderProjectDetail(project);
+    closeModal('modal-invitation-policy');
+    showToast(`Member invitation permission updated to: ${formatInvitationPolicyName(policy)}`, 'success');
+  }
+
+  function formatInvitationPolicyName(val) {
+    if (val === 'admin_only') return 'Only Admin';
+    if (val === 'specific_members') return 'Selected Member';
+    return 'Everyone';
   }
 
   function openEditProjectDetailModal(projectId) {
@@ -9294,6 +9438,12 @@
     syncAssignPolicyCards,
     toggleAssignPolicyMemberList,
     handleSaveAssignmentPolicy,
+    openInvitationPolicyModal,
+    selectInvitePolicyCard,
+    syncInvitePolicyCards,
+    toggleInvitePolicyMemberList,
+    handleSaveInvitationPolicy,
+    formatInvitationPolicyName,
     selectRankingsVisCard,
     syncRankingsVisCards,
     handleProfilePhotoSelected,

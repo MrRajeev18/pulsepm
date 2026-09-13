@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=4.1">
+  <link rel="stylesheet" href="styles.css?v=4.2">
 </head>
 <body>
   <div id="app" class="app-root">
@@ -1679,6 +1679,138 @@
       </div>
     </div>
 
+    <!-- MODAL: CHANGE WHO CAN INVITE MEMBERS (Invitation Policy) -->
+    <div id="modal-invitation-policy" class="modal-backdrop">
+      <div class="modal-dialog modal-permission-dialog">
+        <div class="modal-header">
+          <div class="modal-header-with-icon">
+            <div class="modal-title-icon-badge" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.14) 0%, rgba(5, 150, 105, 0.18) 100%); border-color: rgba(16, 185, 129, 0.25); color: #059669;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <polyline points="22,6 12,13 2,6"></polyline>
+              </svg>
+            </div>
+            <div class="modal-title-group">
+              <div class="modal-title-row">
+                <h3 class="modal-title">Member Invitation Permission</h3>
+                <span class="badge-creator-tag" style="font-size: 0.72rem; padding: 2px 8px; background: rgba(16, 185, 129, 0.1); color: #059669; border: 1px solid rgba(16, 185, 129, 0.25);">✉️ Invitation Access</span>
+              </div>
+              <p class="modal-subtitle">Configure who has authority to invite new members and collaborators to this project.</p>
+            </div>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-invitation-policy');" title="Close">✕</button>
+        </div>
+        <form id="form-invitation-policy" onsubmit="window.App.handleSaveInvitationPolicy(event);">
+          <div class="modal-body">
+            <input type="hidden" id="invite-policy-project-id">
+
+            <!-- Hidden native select maintained for 100% programmatic & test compatibility -->
+            <select id="invite-policy-standalone-select" style="display: none;" onchange="window.App.toggleInvitePolicyMemberList(this.value);" required>
+              <option value="admin_only">1. Only Admin (Only creator of the project can invite)</option>
+              <option value="specific_members">2. Selected member (Admin and Selected members can invite)</option>
+              <option value="anyone">3. Everyone (Everyone can invite members)</option>
+            </select>
+
+            <div class="policy-section-label">
+              <span class="policy-section-label-text">Select Invitation Rule</span>
+              <span class="policy-badge-count">3 Options Available</span>
+            </div>
+
+            <!-- INTERACTIVE POLICY CARDS STACK -->
+            <div class="policy-cards-stack" id="invite-policy-cards-grid" role="radiogroup" aria-label="Member Invitation Permission Policy">
+              
+              <!-- Card 1: admin_only -->
+              <div class="policy-card-option" data-policy="admin_only" onclick="window.App.selectInvitePolicyCard('admin_only');" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); window.App.selectInvitePolicyCard('admin_only');}" role="radio" aria-checked="false" tabindex="0">
+                <div class="policy-card-icon-wrap admin-only">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                  </svg>
+                </div>
+                <div class="policy-card-info">
+                  <div class="policy-card-title-row">
+                    <span class="policy-card-name">1. Only Admin</span>
+                    <span class="policy-pill strict">Strict</span>
+                  </div>
+                  <p class="policy-card-desc">Only the project creator and admins can invite members or share join codes. Regular members cannot add colleagues.</p>
+                </div>
+                <div class="policy-card-radio">
+                  <div class="policy-radio-circle"></div>
+                </div>
+              </div>
+
+              <!-- Card 2: specific_members -->
+              <div class="policy-card-option" data-policy="specific_members" onclick="window.App.selectInvitePolicyCard('specific_members');" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); window.App.selectInvitePolicyCard('specific_members');}" role="radio" aria-checked="false" tabindex="0">
+                <div class="policy-card-icon-wrap specific-members">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                  </svg>
+                </div>
+                <div class="policy-card-info">
+                  <div class="policy-card-title-row">
+                    <span class="policy-card-name">2. Selected member</span>
+                    <span class="policy-pill delegated">Delegated</span>
+                  </div>
+                  <p class="policy-card-desc">The creator, admins, and specifically chosen team members are authorized to invite collaborators.</p>
+                </div>
+                <div class="policy-card-radio">
+                  <div class="policy-radio-circle"></div>
+                </div>
+              </div>
+
+              <!-- Card 3: anyone -->
+              <div class="policy-card-option" data-policy="anyone" onclick="window.App.selectInvitePolicyCard('anyone');" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); window.App.selectInvitePolicyCard('anyone');}" role="radio" aria-checked="false" tabindex="0">
+                <div class="policy-card-icon-wrap anyone">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                  </svg>
+                </div>
+                <div class="policy-card-info">
+                  <div class="policy-card-title-row">
+                    <span class="policy-card-name">3. Everyone</span>
+                    <span class="policy-pill open">Open Access</span>
+                  </div>
+                  <p class="policy-card-desc">Open team collaboration — all team members can invite colleagues and share join links freely.</p>
+                </div>
+                <div class="policy-card-radio">
+                  <div class="policy-radio-circle"></div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Dynamic Member Checklist for Specific Inviters -->
+            <div id="invite-policy-members-container" class="assign-policy-members-box" style="display: none;">
+              <label class="box-label">✉️ Select Specific Team Members Who Can Invite</label>
+              <p class="field-hint">Check the specific colleagues authorized to invite new collaborators:</p>
+              <div id="invite-policy-members-checklist" class="special-assigners-select-list">
+                <!-- Dynamically populated by JS with project.members -->
+              </div>
+            </div>
+
+            <!-- Dynamic Explanatory Notice Callout -->
+            <div id="invite-policy-notice-box" class="modern-policy-notice">
+              <div class="notice-icon-pill">💡</div>
+              <div id="invite-policy-notice-text"><strong>Option Policy:</strong> Choose who can invite members.</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" onclick="window.App.closeModal('modal-invitation-policy');">Cancel</button>
+            <button type="submit" class="btn btn-primary btn-save-policy" id="btn-save-invite-policy">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Save Invitation Permission</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- MODAL: TEAM MEMBER RANKINGS VISIBILITY (Admin, Everyone, Selected Member) -->
     <div id="modal-rankings-visibility" class="modal-backdrop">
       <div class="modal-dialog modal-permission-dialog">
@@ -2297,6 +2429,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="app.js?v=4.3"></script>
+  <script src="app.js?v=4.4"></script>
 </body>
 </html>
