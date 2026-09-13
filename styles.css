@@ -5942,6 +5942,26 @@ body.dark .delete-task-score-warning strong {
   color: #fbbf24 !important;
 }
 
+.badge-reassign-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--text-muted, #64748b);
+  background: var(--bg-subtle, #f8fafc);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px dashed var(--border-color, #e2e8f0);
+}
+
+body.dark .badge-reassign-locked {
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+
 
 
 

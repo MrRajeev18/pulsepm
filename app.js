@@ -1880,40 +1880,84 @@
     }) || null;
   }
 
+  function isTaskCreator(task, user) {
+    if (!task || !user) return false;
+    const userId = user.id || user.uid;
+    const userEmail = getCurrentUserEmail(user);
+    const userName = (user.name || '').trim().toLowerCase();
+
+    if (task.creatorId && userId && String(task.creatorId) === String(userId)) return true;
+    if (task.createdBy && userId && String(task.createdBy) === String(userId)) return true;
+    if (task.creatorEmail && userEmail && task.creatorEmail.trim().toLowerCase() === userEmail.trim().toLowerCase()) return true;
+    if (task.creatorName && userName && task.creatorName.trim().toLowerCase() === userName) return true;
+
+    return false;
+  }
+
   function canUserAssignOthers(project, user) {
     if (!project || !user) return true;
     const policy = project.taskAssignmentPolicy || 'anyone';
     if (policy === 'anyone') return true;
 
-    const currentUid = user.id || user.uid;
-    const memberObj = getProjectMemberForUser(project, user);
-    const memberId = memberObj ? memberObj.id : currentUid;
-
-    const isCreator = Boolean(
-      (project.creatorId && currentUid && project.creatorId === currentUid) ||
-      (project.creatorId && memberId && project.creatorId === memberId) ||
-      (!project.creatorId && memberObj && memberObj.role === 'Owner') ||
-      (!project.creatorId && Array.isArray(project.members) && project.members[0] && (project.members[0].id === memberId || project.members[0].id === currentUid))
-    );
-
-    const isAdmin = isCreator || (memberObj && (
-      memberObj.role === 'Owner' ||
-      memberObj.role === 'Project Lead' ||
-      memberObj.role === 'Admin'
-    ));
-
-    const isSpecificAssigner = Boolean(
-      project.specialAssigners && memberId && project.specialAssigners.includes(memberId)
-    ) || Boolean(
-      project.specialAssigners && currentUid && project.specialAssigners.includes(currentUid)
-    );
+    const isAdmin = isProjectAdmin(project, user) || isProjectOwner(project, user) || isProjectCreator(project, user);
+    if (isAdmin) return true;
 
     if (policy === 'creator_admin') {
-      return Boolean(isCreator || isAdmin);
-    } else if (policy === 'specific_members') {
-      return Boolean(isCreator || isAdmin || isSpecificAssigner);
+      return false;
     }
-    return true;
+
+    if (policy === 'specific_members') {
+      const currentUid = user.id || user.uid;
+      const memberObj = getProjectMemberForUser(project, user);
+      const memberId = memberObj ? memberObj.id : currentUid;
+
+      return Boolean(
+        (project.specialAssigners && memberId && project.specialAssigners.includes(memberId)) ||
+        (project.specialAssigners && currentUid && project.specialAssigners.includes(currentUid))
+      );
+    }
+
+    return false;
+  }
+
+  function canUserReassignTask(project, task, user) {
+    if (!project || !task || !user) return false;
+
+    // 1. Project Admin, Owner, or Project Creator is ALWAYS allowed to reassign
+    if (isProjectAdmin(project, user) || isProjectOwner(project, user) || isProjectCreator(project, user)) {
+      return true;
+    }
+
+    // 2. The Creator of this specific task is ALWAYS allowed to reassign
+    if (isTaskCreator(task, user)) {
+      return true;
+    }
+
+    // 3. Check Project Task Assignment Policy
+    const policy = project.taskAssignmentPolicy || 'anyone';
+
+    // Everyone is allowed policy
+    if (policy === 'anyone') {
+      return true;
+    }
+
+    // Other assign permission (Selected Members / specific_members)
+    if (policy === 'specific_members') {
+      const currentUid = user.id || user.uid;
+      const memberObj = getProjectMemberForUser(project, user);
+      const memberId = memberObj ? memberObj.id : currentUid;
+
+      const isSpecificAssigner = Boolean(
+        (project.specialAssigners && memberId && project.specialAssigners.includes(memberId)) ||
+        (project.specialAssigners && currentUid && project.specialAssigners.includes(currentUid))
+      );
+      if (isSpecificAssigner) {
+        return true;
+      }
+    }
+
+    // Under 'creator_admin' (or not in specific_members), reassignment is restricted to Admin & Creator
+    return false;
   }
 
   function canUserChangeTaskStatus(project, task, user) {
@@ -1924,8 +1968,8 @@
       return true;
     }
 
-    // 2. Who can assign tasks: "who can assign"
-    if (canUserAssignOthers(project, user)) {
+    // 2. Who can assign / reassign tasks:
+    if (canUserReassignTask(project, task, user)) {
       return true;
     }
 
@@ -4229,7 +4273,8 @@
     const assigneeActionsEl = document.getElementById('task-detail-assignee-actions');
     if (assigneeActionsEl) {
       const isAssignedToMe = isTaskAssignedToUser(task, state.currentUser);
-      const canAssignOthers = canUserAssignOthers(project, state.currentUser);
+      const isUnassigned = !task.assigneeId || task.assigneeName === 'Unassigned';
+      const canReassign = canUserReassignTask(project, task, state.currentUser);
       let actionsHtml = '';
 
       if (isAssignedToMe) {
@@ -4239,18 +4284,24 @@
             <span>Assigned to You</span>
           </span>
         `;
-      } else {
-        // Universal rule: Any member can ALWAYS assign the task to themselves!
+      } else if (isUnassigned) {
         actionsHtml += `
-          <button type="button" class="btn-assign-self" onclick="window.App.assignTaskToMyself('${project.id}', '${task.id}')" title="Assign this task to yourself">
+          <button type="button" class="btn-assign-self" onclick="window.App.assignTaskToMyself('${project.id}', '${task.id}')" title="Assign this unassigned task to yourself">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span>🙋 Assign to Me</span>
+          </button>
+        `;
+      } else if (canReassign) {
+        actionsHtml += `
+          <button type="button" class="btn-assign-self" onclick="window.App.assignTaskToMyself('${project.id}', '${task.id}')" title="Reassign this task to yourself">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <span>🙋 Assign to Me</span>
           </button>
         `;
       }
 
-      // If user has authority to assign others, provide a quick reassign dropdown
-      if (canAssignOthers && Array.isArray(project.members) && project.members.length > 0) {
+      // If user has authority to reassign (Admin, Task Creator, or policy allows everyone / specific members), provide quick reassign dropdown
+      if (canReassign && Array.isArray(project.members) && project.members.length > 0) {
         actionsHtml += `
           <select class="task-detail-reassign-select" onchange="if(this.value) window.App.reassignTask('${project.id}', '${task.id}', this.value)" title="Reassign task to a team member">
             <option value="">Reassign to...</option>
@@ -4260,6 +4311,13 @@
           actionsHtml += `<option value="${m.id}" ${isSelected ? 'disabled' : ''}>${escapeHtml(m.name)} (${escapeHtml(m.role)})${isSelected ? ' [Current]' : ''}</option>`;
         });
         actionsHtml += `</select>`;
+      } else if (!canReassign && !isAssignedToMe) {
+        actionsHtml += `
+          <span class="badge-reassign-locked" title="Reassignment restricted: Only Project Admins, the Task Creator, or authorized assigners can reassign tasks under current project policy">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span>Reassignment Restricted</span>
+          </span>
+        `;
       }
 
       assigneeActionsEl.innerHTML = actionsHtml;
@@ -4313,6 +4371,13 @@
     const task = (project.tasks || []).find(t => t.id === taskId);
     if (!task) return;
 
+    // If task is already assigned to someone else, this is a reassignment!
+    const isCurrentlyAssignedToOther = task.assigneeId && !isTaskAssignedToUser(task, state.currentUser);
+    if (isCurrentlyAssignedToOther && !canUserReassignTask(project, task, state.currentUser)) {
+      showToast('🔒 Permission denied: Only Project Admins, the Task Creator, or authorized assigners can reassign this task from another member.', 'error');
+      return;
+    }
+
     const selfMember = getProjectMemberForUser(project, state.currentUser) || state.currentUser;
     const oldAssigneeName = task.assigneeName || 'Unassigned';
 
@@ -4349,8 +4414,8 @@
     const task = (project.tasks || []).find(t => t.id === taskId);
     if (!task) return;
 
-    if (!canUserAssignOthers(project, state.currentUser)) {
-      showToast('You do not have permission to reassign tasks to other members.', 'error');
+    if (!canUserReassignTask(project, task, state.currentUser)) {
+      showToast('🔒 Permission denied: Only Project Admins, the Task Creator, or authorized assigners can reassign this task.', 'error');
       return;
     }
 
@@ -4395,22 +4460,7 @@
     }
 
     // 2. Check if user is the Creator of the task
-    const userId = user.id || user.uid;
-    const userEmail = getCurrentUserEmail(user);
-    const userName = (user.name || '').trim().toLowerCase();
-    const member = getProjectMemberForUser(project, user);
-    const memberId = member ? member.id : null;
-
-    if (task.creatorId && ((userId && String(task.creatorId) === String(userId)) || (memberId && String(task.creatorId) === String(memberId)))) {
-      return true;
-    }
-    if (task.createdBy && ((userId && String(task.createdBy) === String(userId)) || (memberId && String(task.createdBy) === String(memberId)))) {
-      return true;
-    }
-    if (task.creatorEmail && userEmail && task.creatorEmail.trim().toLowerCase() === userEmail.trim().toLowerCase()) {
-      return true;
-    }
-    if (task.creatorName && userName && task.creatorName.trim().toLowerCase() === userName) {
+    if (isTaskCreator(task, user)) {
       return true;
     }
 
@@ -7976,6 +8026,8 @@
     closeProjectSettingsDropdown,
     renderTaskCards,
     canUserDeleteTask,
+    canUserReassignTask,
+    isTaskCreator,
     deleteCurrentOpenTask,
     confirmDeleteTask,
     executeDeleteTask,
