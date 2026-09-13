@@ -385,6 +385,292 @@
   }
 
   // =========================================================
+  // 3B. REAL-TIME PRESENCE & ACTIVITY ENGINE
+  // =========================================================
+  const PRESENCE_STORAGE_KEY = 'pulsepm_presence_v1';
+  const PRESENCE_HEARTBEAT_INTERVAL = 30000; // 30 seconds
+  let presenceHeartbeatTimer = null;
+  let lastUserActivityTimestamp = Date.now();
+  let presenceListenersAttached = false;
+
+  function getLocalPresenceMap() {
+    try {
+      const raw = localStorage.getItem(PRESENCE_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      console.warn('Error reading presence storage:', e);
+      return {};
+    }
+  }
+
+  function saveLocalPresenceMap(map) {
+    try {
+      localStorage.setItem(PRESENCE_STORAGE_KEY, JSON.stringify(map || {}));
+    } catch (e) {
+      console.warn('Error saving presence storage:', e);
+    }
+  }
+
+  function updateMyPresence(statusOverride = null) {
+    if (!state.isLoggedIn || !state.currentUser) return;
+
+    const user = state.currentUser;
+    const uid = user.id || user.uid || 'user-self';
+    const email = (
+      (user.identities && user.identities.email) ||
+      user.email ||
+      (typeof getCurrentUserEmail === 'function' ? getCurrentUserEmail() : '') ||
+      ''
+    ).trim().toLowerCase();
+
+    const isHidden = typeof document !== 'undefined' && document.hidden;
+    let status = statusOverride;
+    if (!status) {
+      status = isHidden ? 'away' : 'online';
+    }
+
+    const now = Date.now();
+    const presenceEntry = {
+      uid,
+      email,
+      name: user.name || 'Anonymous',
+      avatar: user.avatar || '',
+      status,
+      lastSeen: now,
+      updatedAt: now
+    };
+
+    const map = getLocalPresenceMap();
+    if (uid) map[uid] = presenceEntry;
+    if (email) map[email] = presenceEntry;
+    saveLocalPresenceMap(map);
+
+    // Optional Firestore sync if live backend configured
+    if (typeof firebase !== 'undefined' && firebase.firestore && typeof isFirebaseLive !== 'undefined' && isFirebaseLive && uid) {
+      try {
+        const db = firebase.firestore();
+        if (db) {
+          db.collection('users').doc(uid).set({
+            isOnline: status === 'online',
+            presenceStatus: status,
+            lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true }).catch(() => {});
+        }
+      } catch (e) {}
+    }
+  }
+
+  function formatPresenceTimeAgo(timestamp) {
+    if (!timestamp) return '';
+    const diff = Math.max(0, Date.now() - timestamp);
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  }
+
+  function getMemberPresence(member) {
+    if (!member) {
+      return { status: 'offline', label: 'Offline', tooltip: 'Offline', lastSeen: null };
+    }
+
+    const memberId = member.id || member.uid;
+    const memberEmail = (member.email || '').trim().toLowerCase();
+    const currentEmail = (
+      (state.currentUser && state.currentUser.email) ||
+      (state.currentUser && state.currentUser.identities && state.currentUser.identities.email) ||
+      (typeof getCurrentUserEmail === 'function' ? getCurrentUserEmail() : '') ||
+      ''
+    ).trim().toLowerCase();
+
+    const isCurrentUser = Boolean(
+      state.isLoggedIn && state.currentUser && (
+        (memberId && state.currentUser.id && memberId === state.currentUser.id) ||
+        (memberEmail && currentEmail && memberEmail === currentEmail)
+      )
+    );
+
+    if (isCurrentUser) {
+      const isHidden = typeof document !== 'undefined' && document.hidden;
+      const status = isHidden ? 'away' : 'online';
+      return {
+        status,
+        label: status === 'online' ? 'Active now' : 'Away',
+        tooltip: status === 'online' ? 'Active now' : 'Away (tab inactive)',
+        lastSeen: Date.now()
+      };
+    }
+
+    const map = getLocalPresenceMap();
+    const entry = (memberId && map[memberId]) || (memberEmail && map[memberEmail]) || null;
+
+    if (!entry || !entry.lastSeen) {
+      return {
+        status: 'offline',
+        label: 'Offline',
+        tooltip: 'Offline',
+        lastSeen: null
+      };
+    }
+
+    const now = Date.now();
+    const diff = now - entry.lastSeen;
+
+    if (entry.status === 'offline' || diff > 10 * 60 * 1000) {
+      const timeAgo = formatPresenceTimeAgo(entry.lastSeen);
+      return {
+        status: 'offline',
+        label: 'Offline',
+        tooltip: timeAgo ? `Last seen ${timeAgo}` : 'Offline',
+        lastSeen: entry.lastSeen
+      };
+    }
+
+    if (entry.status === 'away' || diff > 2 * 60 * 1000) {
+      const mins = Math.max(1, Math.round(diff / 60000));
+      return {
+        status: 'away',
+        label: `Away (${mins}m)`,
+        tooltip: `Away for ${mins} minute${mins === 1 ? '' : 's'}`,
+        lastSeen: entry.lastSeen
+      };
+    }
+
+    return {
+      status: 'online',
+      label: 'Active now',
+      tooltip: 'Active now',
+      lastSeen: entry.lastSeen
+    };
+  }
+
+  function getProjectOnlineMembers(project) {
+    if (!project || !Array.isArray(project.members)) return [];
+    return project.members.filter(m => {
+      const p = getMemberPresence(m);
+      return p.status === 'online';
+    });
+  }
+
+  function updateChatHeaderPresence(project) {
+    if (!project) return;
+    const onlinePill = document.getElementById('chat-online-pill');
+    const onlineCountEl = document.getElementById('chat-online-count');
+    const membersSubtitle = document.getElementById('chat-members-subtitle');
+
+    const onlineMembers = getProjectOnlineMembers(project);
+    const count = onlineMembers.length;
+
+    if (onlinePill && onlineCountEl) {
+      if (count > 0) {
+        onlinePill.style.display = 'inline-flex';
+        onlineCountEl.innerText = `${count} online`;
+      } else {
+        onlinePill.style.display = 'none';
+      }
+    }
+
+    if (membersSubtitle) {
+      const total = (project.members || []).length;
+      membersSubtitle.innerText = `${total} member${total === 1 ? '' : 's'} participating`;
+    }
+  }
+
+  function refreshPresenceUI() {
+    if (!state.isLoggedIn || !state.activeProjectId) return;
+    const project = (state.projects || []).find(p => p.id === state.activeProjectId);
+    if (!project) return;
+
+    if (state.activeProjectTab === 'team') {
+      const searchInput = document.getElementById('team-search-input');
+      renderProjectTeam(project, searchInput ? searchInput.value : '');
+    } else if (state.activeProjectTab === 'chats') {
+      updateChatHeaderPresence(project);
+    }
+  }
+
+  function setupPresenceEventListeners() {
+    if (presenceListenersAttached) return;
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    // Visibility change
+    document.addEventListener('visibilitychange', () => {
+      if (!state.isLoggedIn) return;
+      if (document.hidden) {
+        updateMyPresence('away');
+      } else {
+        updateMyPresence('online');
+      }
+      refreshPresenceUI();
+    });
+
+    // Before unload (tab/window close)
+    window.addEventListener('beforeunload', () => {
+      if (state.isLoggedIn) {
+        updateMyPresence('offline');
+      }
+    });
+
+    // Throttled user activity
+    const onUserActivity = () => {
+      if (!state.isLoggedIn || (document && document.hidden)) return;
+      const now = Date.now();
+      if (now - lastUserActivityTimestamp > 15000) {
+        lastUserActivityTimestamp = now;
+        updateMyPresence('online');
+      }
+    };
+
+    ['mousemove', 'keydown', 'click', 'touchstart'].forEach(evt => {
+      window.addEventListener(evt, onUserActivity, { passive: true });
+    });
+
+    // Storage listener for instant cross-tab presence synchronization
+    window.addEventListener('storage', (e) => {
+      if (e.key === PRESENCE_STORAGE_KEY) {
+        refreshPresenceUI();
+      }
+    });
+
+    presenceListenersAttached = true;
+  }
+
+  function startPresenceHeartbeat() {
+    if (!state.isLoggedIn) return;
+
+    updateMyPresence('online');
+
+    if (presenceHeartbeatTimer) {
+      if (typeof clearInterval !== 'undefined') {
+        clearInterval(presenceHeartbeatTimer);
+      }
+      presenceHeartbeatTimer = null;
+    }
+
+    if (typeof setInterval !== 'undefined') {
+      presenceHeartbeatTimer = setInterval(() => {
+        updateMyPresence();
+        refreshPresenceUI();
+      }, PRESENCE_HEARTBEAT_INTERVAL);
+    }
+
+    setupPresenceEventListeners();
+  }
+
+  function stopPresenceHeartbeat() {
+    if (presenceHeartbeatTimer) {
+      if (typeof clearInterval !== 'undefined') {
+        clearInterval(presenceHeartbeatTimer);
+      }
+      presenceHeartbeatTimer = null;
+    }
+    updateMyPresence('offline');
+  }
+
+  // =========================================================
   // 4. AUTHENTICATION CONTROLLER (Unified Account & Firebase)
   // =========================================================
   let firebaseAuth = null;
@@ -1579,10 +1865,13 @@
     document.getElementById('auth-view').style.display = 'none';
     document.getElementById('main-app').style.display = 'flex';
 
+    startPresenceHeartbeat();
+
     showToast('✨ Welcome back! Logged in via ' + methodName + '.', 'success');
   }
 
   function handleLogout() {
+    stopPresenceHeartbeat();
     if (firestoreProjectsUnsubscribe) {
       try { firestoreProjectsUnsubscribe(); } catch(e){}
       firestoreProjectsUnsubscribe = null;
@@ -1732,10 +2021,19 @@
       content.classList.toggle('active', content.id === 'project-tab-content-' + tabName);
     });
 
+    const project = (state.projects || []).find(p => p.id === state.activeProjectId);
+    if (project && tabName === 'team') {
+      const searchInput = document.getElementById('team-search-input');
+      renderProjectTeam(project, searchInput ? searchInput.value : '');
+    }
+
     if (tabName === 'chats') {
       scrollChatToBottom();
       markProjectChatsAsSeen(state.activeProjectId);
       clearChatNotificationsForProject(state.activeProjectId);
+      if (project) {
+        updateChatHeaderPresence(project);
+      }
     } else {
       updateChatTabBadge();
     }
@@ -5506,9 +5804,7 @@
     if (channelTitle) {
       channelTitle.innerText = project.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-general';
     }
-    if (membersSubtitle) {
-      membersSubtitle.innerText = `${project.members.length} members participating`;
-    }
+    updateChatHeaderPresence(project);
 
     markProjectChatsAsSeen(project.id);
 
@@ -5528,7 +5824,7 @@
     let html = '';
     project.chats.forEach(msg => {
       const isSystem = msg.senderId === 'system';
-      const isOwn = !isSystem && (msg.senderId === state.currentUser.id);
+      const isOwn = !isSystem && (state.currentUser && (msg.senderId === state.currentUser.id || msg.senderId === state.currentUser.uid));
       if (isSystem) {
         html += `
           <div class="chat-message-item chat-message-system">
@@ -5539,9 +5835,18 @@
           </div>
         `;
       } else {
+        const senderMember = (project.members || []).find(m =>
+          (m.id && m.id === msg.senderId) ||
+          (m.name && msg.senderName && m.name.toLowerCase() === msg.senderName.toLowerCase())
+        ) || { id: msg.senderId, name: msg.senderName, avatar: msg.senderAvatar };
+        const senderPresence = getMemberPresence(senderMember);
+
         html += `
           <div class="chat-message-item ${isOwn ? 'own' : ''}">
-            <div class="chat-avatar" title="${escapeHtml(msg.senderName)}">${renderAvatarInnerHtml(msg.senderAvatar, msg.senderName)}</div>
+            <div class="chat-avatar-wrap">
+              <div class="chat-avatar" title="${escapeHtml(msg.senderName)}">${renderAvatarInnerHtml(msg.senderAvatar, msg.senderName)}</div>
+              <span class="presence-dot ${senderPresence.status}" title="${escapeHtml(senderPresence.tooltip)}"></span>
+            </div>
             <div class="chat-body">
               <div class="chat-sender-info">
                 <span class="chat-sender-name">${escapeHtml(msg.senderName)}</span>
@@ -6005,10 +6310,16 @@
 
     const subtitleEl = document.getElementById('team-tab-subtitle');
     const allPendingInvites = (project.pendingInvitations || []).filter(i => i.status === 'pending' || !i.status);
+    const onlineMembersCount = getProjectOnlineMembers(project).length;
     if (subtitleEl) {
       const memberCountText = `${project.members.length} member${project.members.length === 1 ? '' : 's'}`;
       const invitedCountText = allPendingInvites.length > 0 ? ` · ${allPendingInvites.length} invited` : '';
-      subtitleEl.innerText = `${memberCountText}${invitedCountText} collaborating on this project`;
+      const onlineTextPlain = onlineMembersCount > 0 ? ` · ${onlineMembersCount} active now` : '';
+      const onlineCountText = onlineMembersCount > 0 ? ` · <span class="team-active-count" style="color: #10b981; font-weight: 600;">● ${onlineMembersCount} active now</span>` : '';
+      subtitleEl.innerText = `${memberCountText}${invitedCountText}${onlineTextPlain} collaborating on this project`;
+      if (onlineMembersCount > 0) {
+        subtitleEl.innerHTML = `${memberCountText}${invitedCountText}${onlineCountText} collaborating on this project`;
+      }
     }
 
     let members = project.members || [];
@@ -6045,6 +6356,7 @@
 
     let html = '';
     members.forEach(m => {
+      const presence = getMemberPresence(m);
       const isCreator = (project.creatorId === m.id) || (m.role === 'Owner');
       const currentUserEmail = getCurrentUserEmail();
       const isCurrentUser = Boolean(
@@ -6117,13 +6429,20 @@
       html += `
         <div class="team-member-card" onclick="window.App.openMemberContactModal('${project.id}', '${m.id}')" style="cursor: pointer;" title="Click to view contact details for ${escapeHtml(memberName)}">
           <div class="team-card-top clickable-profile" title="Click to view ${escapeHtml(memberName)}'s contact card">
-            <div class="team-card-avatar ${isCreator ? 'avatar-creator' : ''}">
-              ${renderAvatarInnerHtml(memberAvatar, memberName)}
+            <div class="member-avatar-wrap">
+              <div class="team-card-avatar ${isCreator ? 'avatar-creator' : ''}">
+                ${renderAvatarInnerHtml(memberAvatar, memberName)}
+              </div>
+              <span class="presence-dot ${presence.status}" title="${escapeHtml(presence.tooltip)}"></span>
             </div>
             <div class="team-card-identity">
               <div class="team-card-name-row">
                 <strong class="team-card-name">${escapeHtml(memberName)}</strong>
                 ${isCurrentUser ? '<span class="team-you-badge">You</span>' : ''}
+                <span class="presence-pill ${presence.status}" title="${escapeHtml(presence.tooltip)}">
+                  <span class="presence-pill-dot"></span>
+                  <span>${presence.label}</span>
+                </span>
               </div>
               <span class="team-card-email">${escapeHtml(memberEmail)}</span>
             </div>
@@ -9344,6 +9663,15 @@
       localStorage.removeItem('pulsepm_chatbot_explicit_config');
     } catch (e) {}
 
+    // 5b. Stop presence heartbeat and clean up presence
+    stopPresenceHeartbeat();
+    try {
+      const presenceMap = getLocalPresenceMap();
+      if (userId && presenceMap[userId]) delete presenceMap[userId];
+      if (userEmail && presenceMap[userEmail.toLowerCase()]) delete presenceMap[userEmail.toLowerCase()];
+      saveLocalPresenceMap(presenceMap);
+    } catch(e) {}
+
     // 6. Reset application session
     state.isLoggedIn = false;
     state.currentUser = null;
@@ -9554,6 +9882,7 @@
       navigateToHome();
       checkDeadlineNotifications();
       updateNotificationBell();
+      startPresenceHeartbeat();
     } else {
       document.getElementById('auth-view').style.display = 'flex';
       document.getElementById('main-app').style.display = 'none';
@@ -9794,6 +10123,17 @@
     handleConfirmDeleteAccount,
     getDeletedAccountsDataset,
     saveToDeletedAccountsDataset,
+    getMemberPresence,
+    getProjectOnlineMembers,
+    updateMyPresence,
+    startPresenceHeartbeat,
+    stopPresenceHeartbeat,
+    refreshPresenceUI,
+    updateChatHeaderPresence,
+    renderProjectChats,
+    getLocalPresenceMap,
+    saveLocalPresenceMap,
+    PRESENCE_STORAGE_KEY,
     state
   };
 

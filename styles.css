@@ -5114,6 +5114,7 @@ body.dark .team-member-card.team-member-card-invited {
 .team-card-name-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -7722,6 +7723,151 @@ body.dark .pending-invite-card {
 body.dark .dashboard-invitations-banner {
   background: rgba(79, 70, 229, 0.12);
   border-color: rgba(79, 70, 229, 0.35);
+}
+
+/* ==========================================================================
+   REAL-TIME ONLINE PRESENCE & ACTIVITY STYLES
+   ========================================================================== */
+.member-avatar-wrap,
+.chat-avatar-wrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.presence-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-card, #ffffff);
+  box-sizing: content-box;
+  z-index: 2;
+  transition: all 0.2s ease;
+}
+
+.presence-dot.online {
+  background-color: #10b981;
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.25);
+  animation: presence-pulse 2.2s infinite ease-in-out;
+}
+
+.presence-dot.away {
+  background-color: #f59e0b;
+}
+
+.presence-dot.offline {
+  background-color: #94a3b8;
+}
+
+@keyframes presence-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 5px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+/* Presence Pill Badge in Member Rows */
+.presence-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.presence-pill.online {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.presence-pill.away {
+  background-color: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+}
+
+.presence-pill.offline {
+  background-color: rgba(148, 163, 184, 0.12);
+  color: #64748b;
+}
+
+.presence-pill-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.presence-pill.online .presence-pill-dot {
+  background-color: #10b981;
+}
+
+.presence-pill.away .presence-pill-dot {
+  background-color: #f59e0b;
+}
+
+.presence-pill.offline .presence-pill-dot {
+  background-color: #94a3b8;
+}
+
+/* Chat Header Live Online Counter Badge */
+.chat-online-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: var(--radius-full, 9999px);
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-left: 8px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.chat-online-pill .presence-indicator-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #10b981;
+  animation: presence-pulse 2.2s infinite ease-in-out;
+}
+
+/* Dark mode overrides */
+body.dark .presence-dot {
+  border-color: var(--bg-card, #1e293b);
+}
+
+body.dark .presence-pill.online {
+  background-color: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+body.dark .presence-pill.away {
+  background-color: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+body.dark .presence-pill.offline {
+  background-color: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+}
+
+body.dark .chat-online-pill {
+  background-color: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.3);
 }
 
 
