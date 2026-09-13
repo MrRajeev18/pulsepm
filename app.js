@@ -3816,6 +3816,9 @@
     project.specialAssigners = newSpecialAssigners;
     project.rankingsVisibility = newRankingsVis;
     project.rankingsViewers = newRankingsViewers;
+    if (!project.creatorEmail && state.currentUser) {
+      project.creatorEmail = getCurrentUserEmail(state.currentUser);
+    }
 
     if (!project.activity) project.activity = [];
     project.activity.unshift({
@@ -6329,6 +6332,7 @@
       startDate: startDate,
       deadline: deadline,
       creatorId: currentUserId,
+      creatorEmail: userEmail,
       taskAssignmentPolicy: taskAssignmentPolicy,
       specialAssigners: specialAssignerIds,
       rankingsVisibility: rankingsVisibility,
@@ -6436,8 +6440,8 @@
         select.disabled = false;
         if (hint) hint.innerText = 'Assign this deliverable to yourself or select a team member.';
       } else {
-        select.disabled = false;
-        if (hint) hint.innerText = 'Self-assignment enabled: You are assigning this deliverable to yourself.';
+        select.disabled = true;
+        if (hint) hint.innerText = '🔒 Policy restricted: Only Project Admins can assign deliverables to other colleagues. This task will be assigned to you.';
       }
       select.innerHTML = optionsHtml;
     }
