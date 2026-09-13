@@ -3206,19 +3206,25 @@ body.dark .assign-policy-members-box .special-assigners-select-list {
   border-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Invite Modal Tabs - Space Optimized */
+/* Invite Modal Dialog & Tabs - Modern SaaS Redesign */
+.modal-dialog.modal-invite-dialog {
+  max-width: 650px;
+}
+
 #modal-invite-member .modal-body {
-  padding: 16px 20px;
+  padding: 20px 24px;
 }
 
 .invite-tabs {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
-  background-color: var(--bg-subtle);
-  padding: 4px;
-  border-radius: var(--radius-md);
-  margin-bottom: 14px;
+  background-color: var(--bg-subtle, #f1f5f9);
+  padding: 5px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 18px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .invite-tab-btn {
@@ -3226,13 +3232,13 @@ body.dark .assign-policy-members-box .special-assigners-select-list {
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 7px;
   padding: 8px 10px;
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--text-secondary);
-  border-radius: var(--radius-sm);
-  transition: var(--transition);
+  border-radius: 8px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   border: 1px solid transparent;
   background: transparent;
   cursor: pointer;
@@ -3241,22 +3247,34 @@ body.dark .assign-policy-members-box .special-assigners-select-list {
 
 .invite-tab-btn svg {
   flex-shrink: 0;
+  transition: transform 0.2s ease, color 0.2s ease;
 }
 
 .invite-tab-btn:hover {
   color: var(--text-main);
-  background-color: rgba(255, 255, 255, 0.4);
+  background-color: rgba(255, 255, 255, 0.7);
 }
 
 [data-theme="dark"] .invite-tab-btn:hover {
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: rgba(255, 255, 255, 0.06);
 }
 
 .invite-tab-btn.active {
   background-color: var(--bg-card);
   color: var(--primary);
-  border-color: rgba(0, 0, 0, 0.06);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-color: rgba(79, 70, 229, 0.18);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(79, 70, 229, 0.1);
+}
+
+[data-theme="dark"] .invite-tab-btn.active {
+  background-color: var(--bg-card);
+  color: #818cf8;
+  border-color: rgba(129, 140, 248, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.invite-tab-btn.active svg {
+  transform: scale(1.08);
 }
 
 .invite-tab-panel {
@@ -3265,70 +3283,87 @@ body.dark .assign-policy-members-box .special-assigners-select-list {
 
 .invite-tab-panel.active {
   display: block;
-  animation: fadeIn 0.2s ease-out;
+  animation: fadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .panel-desc-text {
   font-size: 0.83rem;
-  line-height: 1.4;
+  line-height: 1.5;
   color: var(--text-secondary);
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
-/* Past Collaborators List - Space Optimized */
+/* Past Collaborators List - SaaS Card Optimized */
 .past-collaborators-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 320px;
+  max-height: 290px;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-right: 2px;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+.past-collaborators-list::-webkit-scrollbar {
+  width: 5px;
+}
+.past-collaborators-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.past-collaborators-list::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 9999px;
 }
 
 .collaborator-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: 10px 14px;
   background-color: var(--bg-subtle);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   min-width: 0;
   gap: 12px;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition: all 0.18s ease;
 }
 
 .collaborator-item:hover {
   background-color: var(--bg-card);
-  border-color: var(--primary-light);
+  border-color: rgba(79, 70, 229, 0.3);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.04);
+  transform: translateY(-1px);
 }
 
 .collaborator-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex: 1;
   min-width: 0;
   overflow: hidden;
 }
 
 .collaborator-avatar {
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  max-width: 36px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  max-width: 38px;
   border-radius: var(--radius-full);
-  background: var(--primary);
+  background: linear-gradient(135deg, var(--primary) 0%, #6366f1 100%);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   flex-shrink: 0;
   overflow: hidden;
   position: relative;
+  box-shadow: 0 2px 5px rgba(79, 70, 229, 0.2);
+  border: 2px solid var(--bg-card);
 }
 
 .collaborator-avatar img {
@@ -3347,19 +3382,20 @@ body.dark .assign-policy-members-box .special-assigners-select-list {
 
 .collaborator-info strong {
   display: block;
-  font-size: 0.86rem;
+  font-size: 0.88rem;
   font-weight: 600;
   line-height: 1.25;
-  margin-bottom: 1px;
+  margin-bottom: 2px;
+  color: var(--text-main);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .collaborator-info span {
-  font-size: 0.76rem;
+  font-size: 0.77rem;
   color: var(--text-muted);
-  line-height: 1.2;
+  line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3374,9 +3410,12 @@ body.dark .assign-policy-members-box .special-assigners-select-list {
 }
 
 .copy-input-box input {
-  font-family: monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.85rem;
   background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-main);
 }
 
 .security-note {
@@ -3397,33 +3436,49 @@ body.dark .assign-policy-members-box .special-assigners-select-list {
 .code-display-card {
   background: var(--bg-subtle);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-radius: 12px;
   padding: 18px;
   text-align: center;
+  transition: all 0.2s ease;
+}
+
+.code-display-card:hover {
+  border-color: rgba(79, 70, 229, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
 .code-display-card.highlight {
-  border-color: rgba(99, 102, 241, 0.4);
-  background: var(--primary-light);
+  border-color: rgba(79, 70, 229, 0.35);
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.06) 0%, rgba(99, 102, 241, 0.1) 100%);
+  box-shadow: 0 2px 10px rgba(79, 70, 229, 0.08);
 }
 
 .code-label {
   display: block;
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.72rem;
+  font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--text-muted);
   margin-bottom: 6px;
 }
 
+.code-display-card.highlight .code-label {
+  color: var(--primary);
+}
+
 .code-val {
   display: block;
-  font-size: 1.4rem;
-  font-family: monospace;
+  font-size: 1.45rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-weight: 800;
-  color: var(--primary);
+  color: var(--text-main);
   margin-bottom: 12px;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+}
+
+.code-display-card.highlight .code-val {
+  color: var(--primary);
 }
 
 /* Profile Modal Details */
@@ -5764,18 +5819,16 @@ body.dark .team-member-card.team-member-card-invited {
 
 /* Email Invitation Notice Card */
 .invite-email-notice-card {
-  background: var(--surface-hover, #f8fafc);
-  border: 1px solid var(--border-color, #e2e8f0);
-  border-left: 4px solid var(--primary, #4f46e5);
-  border-radius: var(--radius-md, 8px);
-  padding: 14px 16px;
-  margin-bottom: 20px;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.07) 0%, rgba(99, 102, 241, 0.03) 100%);
+  border: 1px solid rgba(79, 70, 229, 0.2);
+  border-radius: 12px;
+  padding: 13px 16px;
+  margin-bottom: 16px;
 }
 
 [data-theme="dark"] .invite-email-notice-card {
   background: rgba(79, 70, 229, 0.08);
   border-color: rgba(79, 70, 229, 0.25);
-  border-left-color: var(--primary, #6366f1);
 }
 
 .invite-email-notice-header {

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=4.3">
+  <link rel="stylesheet" href="styles.css?v=4.4">
 </head>
 <body>
   <div id="app" class="app-root">
@@ -882,13 +882,26 @@
 
     <!-- MODAL 2: INVITE MEMBER (4 METHODS) -->
     <div id="modal-invite-member" class="modal-backdrop">
-      <div class="modal-dialog modal-lg">
+      <div class="modal-dialog modal-project-form modal-invite-dialog">
         <div class="modal-header">
-          <div>
-            <h3>Invite Team Members</h3>
-            <p class="modal-subtitle">Invite colleagues via email, past collaborators, sharable link, or Project ID & Join Code.</p>
+          <div class="modal-header-with-icon">
+            <div class="modal-title-icon-badge" style="background: linear-gradient(135deg, rgba(79, 70, 229, 0.12) 0%, rgba(99, 102, 241, 0.16) 100%); border-color: rgba(79, 70, 229, 0.25); color: var(--primary);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="8.5" cy="7" r="4"></circle>
+                <line x1="20" y1="8" x2="20" y2="14"></line>
+                <line x1="23" y1="11" x2="17" y2="11"></line>
+              </svg>
+            </div>
+            <div class="modal-title-group">
+              <div class="modal-title-row">
+                <h3 class="modal-title">Invite Team Members</h3>
+                <span class="badge-creator-tag" style="font-size: 0.72rem; padding: 2px 8px; background: rgba(79, 70, 229, 0.1); color: var(--primary); border: 1px solid rgba(79, 70, 229, 0.25);">👥 Collaboration</span>
+              </div>
+              <p class="modal-subtitle">Invite colleagues via direct email, past collaborators, shareable link, or join credentials.</p>
+            </div>
           </div>
-          <button class="modal-close-btn" onclick="window.App.closeModal('modal-invite-member');">✕</button>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-invite-member');" title="Close">✕</button>
         </div>
         <div class="modal-body">
           <!-- 4 INVITATION TABS: EMAIL, PAST COLLABORATORS, LINK, ID & CODE -->
@@ -913,59 +926,55 @@
 
           <!-- INVITE PANEL 1: EMAIL ADDRESS -->
           <div id="invite-panel-email" class="invite-tab-panel active">
-            <p class="panel-desc-text">Add colleagues by their email address to grant them immediate membership in this project group.</p>
-
-            <!-- Informative Notice Box: Automatic Access vs No Email Notification -->
-            <div class="invite-email-notice-card">
-              <div class="invite-email-notice-header">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <line x1="12" y1="16" x2="12" y2="12"/>
-                  <line x1="12" y1="8" x2="12.01" y2="8"/>
-                </svg>
-                <span>How Email Membership Works</span>
-              </div>
-              <div class="invite-email-notice-body">
-                <div class="notice-point">
-                  <span class="notice-point-icon">📩</span>
-                  <div>
-                    <strong>Member Acceptance Required:</strong>
-                    <span>Adding a colleague dispatches a project invitation. They will see an invitation banner on their dashboard and can review and click "Accept" to officially join.</span>
-                  </div>
-                </div>
+            <!-- Modern Policy Notice Box -->
+            <div class="modern-policy-notice invite-email-notice-card" style="margin-top: 0; margin-bottom: 14px;">
+              <div class="notice-icon-pill">📩</div>
+              <div style="font-size: 0.83rem; line-height: 1.45;">
+                <strong style="display: block; margin-bottom: 2px;">Member Acceptance Required</strong>
+                <span style="color: var(--text-secondary);">Adding a colleague dispatches a project invitation. They will see an invitation banner on their dashboard and can review and click "Accept" to officially join.</span>
               </div>
             </div>
 
             <form id="form-invite-email" onsubmit="event.preventDefault(); window.App.handleAddEmailMember();">
-              <div class="form-row">
-                <div class="form-group col-7">
-                  <label for="invite-email-input">Colleague's Email Address <span class="required">*</span></label>
-                  <input type="email" id="invite-email-input" placeholder="e.g. colleague@company.com" required autocomplete="email">
+              <div class="project-form-card" style="padding: 16px; margin-bottom: 16px;">
+                <div class="project-form-card-header" style="margin-bottom: 12px;">
+                  <span class="project-form-card-title"><span class="card-title-icon">✉️</span> Recipient Information</span>
                 </div>
-                <div class="form-group col-5">
-                  <label for="invite-role-input">Project Role <span class="required">*</span></label>
-                  <input type="text" id="invite-role-input" list="invite-role-suggestions" placeholder="e.g. Member, Lead..." value="Member" required autocomplete="off">
-                  <datalist id="invite-role-suggestions">
-                    <option value="Member">
-                    <option value="Contributor">
-                    <option value="Project Lead">
-                    <option value="Developer">
-                    <option value="Designer">
-                    <option value="Product Manager">
-                    <option value="QA Engineer">
-                  </datalist>
+                
+                <div class="form-row" style="display: grid; grid-template-columns: 1.6fr 1fr; gap: 12px;">
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label for="invite-email-input" style="font-weight: 600; font-size: 0.82rem; margin-bottom: 6px; display: block;">Colleague's Email Address <span class="required" style="color: var(--danger, #ef4444);">*</span></label>
+                    <input type="email" id="invite-email-input" class="form-control" placeholder="e.g. colleague@company.com" required autocomplete="email">
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label for="invite-role-input" style="font-weight: 600; font-size: 0.82rem; margin-bottom: 6px; display: block;">Project Role <span class="required" style="color: var(--danger, #ef4444);">*</span></label>
+                    <input type="text" id="invite-role-input" class="form-control" list="invite-role-suggestions" placeholder="e.g. Member, Lead..." value="Member" required autocomplete="off">
+                    <datalist id="invite-role-suggestions">
+                      <option value="Member">
+                      <option value="Contributor">
+                      <option value="Project Lead">
+                      <option value="Developer">
+                      <option value="Designer">
+                      <option value="Product Manager">
+                      <option value="QA Engineer">
+                    </datalist>
+                  </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 12px; margin-bottom: 0;">
+                  <label for="invite-name-input" style="font-weight: 600; font-size: 0.82rem; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+                    <span>Colleague's Name</span>
+                    <span style="font-size: 0.74rem; font-weight: normal; color: var(--text-muted);">Optional - defaults to email prefix</span>
+                  </label>
+                  <input type="text" id="invite-name-input" class="form-control" placeholder="e.g. Rajeev Ranjan, Ravi Kumar">
                 </div>
               </div>
 
-              <div class="form-group">
-                <label for="invite-name-input">Colleague's Name <small style="color: var(--text-muted); font-weight: normal;">(Optional - defaults to email prefix)</small></label>
-                <input type="text" id="invite-name-input" placeholder="e.g. Rajeev Ranjan, Ravi kumar">
-              </div>
-
-              <div style="display: flex; justify-content: flex-end; margin-top: 14px;">
-                <button type="submit" class="btn btn-primary" id="btn-add-email-member">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-                  <span>Add Member to Project</span>
+              <div style="display: flex; justify-content: flex-end; align-items: center; gap: 10px;">
+                <button type="button" class="btn btn-secondary" onclick="window.App.closeModal('modal-invite-member');">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="btn-add-email-member" style="display: inline-flex; align-items: center; gap: 7px; font-weight: 600; padding: 9px 20px; box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                  <span>Send Invitation</span>
                 </button>
               </div>
             </form>
@@ -973,41 +982,76 @@
 
           <!-- INVITE PANEL 2: PAST COLLABORATORS -->
           <div id="invite-panel-past" class="invite-tab-panel">
-            <p class="panel-desc-text">People you've worked with before across your previous projects. Click to send an invitation request to this group.</p>
-            <div id="past-collaborators-list" class="past-collaborators-list">
-              <!-- Rendered by JS -->
+            <div class="project-form-card" style="padding: 16px;">
+              <div class="project-form-card-header" style="margin-bottom: 8px;">
+                <span class="project-form-card-title"><span class="card-title-icon">👥</span> Previous Collaborators</span>
+                <span style="font-size: 0.76rem; color: var(--text-muted); font-weight: 500;">Quick Invite</span>
+              </div>
+              <p class="panel-desc-text">Colleagues you've worked with previously across projects. Click to send an instant invitation request.</p>
+              <div id="past-collaborators-list" class="past-collaborators-list">
+                <!-- Rendered by JS -->
+              </div>
             </div>
           </div>
 
           <!-- INVITE PANEL 3: SHARABLE LINK -->
           <div id="invite-panel-link" class="invite-tab-panel">
-            <p class="panel-desc-text">Anyone with this unique join link can access this project group.</p>
-            <div class="copy-input-box">
-              <input type="text" id="invite-share-link" readonly value="https://pulsepm.io/join/PRJ-1049?token=94ba31">
-              <button class="btn btn-primary" onclick="window.App.copyText(document.getElementById('invite-share-link').value, 'Invite Link');">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                <span>Copy Link</span>
-              </button>
-            </div>
-            <div class="security-note">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              <span>This link grants Contributor access and expires in 30 days.</span>
+            <div class="project-form-card" style="padding: 18px;">
+              <div class="project-form-card-header" style="margin-bottom: 12px;">
+                <span class="project-form-card-title"><span class="card-title-icon">🔗</span> Shareable Project Link</span>
+                <span class="badge" style="background: rgba(16, 185, 129, 0.1); color: #059669; border: 1px solid rgba(16, 185, 129, 0.25); font-size: 0.72rem; padding: 2px 8px; border-radius: 9999px; font-weight: 600;">Active</span>
+              </div>
+              <p class="panel-desc-text">Anyone with this unique join link can access or request membership in this project group directly.</p>
+              
+              <div class="copy-input-box" style="display: flex; gap: 8px; margin-bottom: 14px;">
+                <div style="position: relative; flex: 1;">
+                  <input type="text" id="invite-share-link" readonly value="https://pulsepm.io/join/PRJ-1049?token=94ba31" class="form-control" style="font-family: monospace; font-size: 0.85rem; padding-left: 36px; background: var(--bg-subtle);">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="window.App.copyText(document.getElementById('invite-share-link').value, 'Invite Link');" style="display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding: 0 16px; font-weight: 600; box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25);">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span>Copy Link</span>
+                </button>
+              </div>
+
+              <div class="security-note" style="display: flex; align-items: center; gap: 10px; padding: 11px 14px; background: var(--bg-subtle); border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.81rem; color: var(--text-secondary);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--primary); flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span>This link grants Contributor access and expires in 30 days. Shared link access adheres to your project invitation permissions.</span>
+              </div>
             </div>
           </div>
 
           <!-- INVITE PANEL 4: PROJECT ID & JOIN CODE -->
           <div id="invite-panel-code" class="invite-tab-panel">
-            <p class="panel-desc-text">Team members can enter this Project ID and 6-digit Join Code on their dashboard to instantly enter the project.</p>
-            <div class="code-cards-row">
-              <div class="code-display-card">
-                <span class="code-label">Project ID</span>
-                <span class="code-val" id="invite-modal-project-id">PRJ-2940</span>
-                <button class="btn btn-secondary btn-xs" onclick="window.App.copyText(document.getElementById('invite-modal-project-id').innerText, 'Project ID');">Copy ID</button>
+            <div class="project-form-card" style="padding: 18px;">
+              <div class="project-form-card-header" style="margin-bottom: 12px;">
+                <span class="project-form-card-title"><span class="card-title-icon">🔑</span> Direct Credentials</span>
+                <span class="badge" style="background: rgba(79, 70, 229, 0.1); color: var(--primary); border: 1px solid rgba(79, 70, 229, 0.25); font-size: 0.72rem; padding: 2px 8px; border-radius: 9999px; font-weight: 600;">Instant Entry</span>
               </div>
-              <div class="code-display-card highlight">
-                <span class="code-label">6-Digit Join Code</span>
-                <span class="code-val" id="invite-modal-join-code">849-210</span>
-                <button class="btn btn-secondary btn-xs" onclick="window.App.copyText(document.getElementById('invite-modal-join-code').innerText, 'Join Code');">Copy Code</button>
+              <p class="panel-desc-text">Team members can enter this Project ID and 6-digit Join Code under "Join Project" on their dashboard.</p>
+              
+              <div class="code-cards-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                <div class="code-display-card">
+                  <span class="code-label">Project ID</span>
+                  <span class="code-val" id="invite-modal-project-id">PRJ-2940</span>
+                  <button type="button" class="btn btn-secondary btn-xs" onclick="window.App.copyText(document.getElementById('invite-modal-project-id').innerText, 'Project ID');" style="display: inline-flex; align-items: center; gap: 5px; font-weight: 600; padding: 4px 12px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    <span>Copy ID</span>
+                  </button>
+                </div>
+                <div class="code-display-card highlight">
+                  <span class="code-label">6-Digit Join Code</span>
+                  <span class="code-val" id="invite-modal-join-code">849-210</span>
+                  <button type="button" class="btn btn-primary btn-xs" onclick="window.App.copyText(document.getElementById('invite-modal-join-code').innerText, 'Join Code');" style="display: inline-flex; align-items: center; gap: 5px; font-weight: 600; padding: 4px 12px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    <span>Copy Code</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="security-note" style="display: flex; align-items: center; gap: 10px; padding: 11px 14px; background: var(--bg-subtle); border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.81rem; color: var(--text-secondary);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--primary); flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span>When entered, applicants submit a join request that administrators can approve or decline in real time.</span>
               </div>
             </div>
           </div>
@@ -2466,6 +2510,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="app.js?v=4.5"></script>
+  <script src="app.js?v=4.6"></script>
 </body>
 </html>
