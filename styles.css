@@ -5829,6 +5829,120 @@ input:checked + .slider:before {
   background: var(--bg-surface, #f8fafc);
 }
 
+/* =========================================================
+   TASK DELETION & SCORE IMPACT STYLES
+   ========================================================= */
+.btn-delete-task {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: transparent;
+  color: var(--accent-rose, #ef4444);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  padding: 6px 14px;
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-delete-task:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+  color: #dc2626;
+  transform: translateY(-1px);
+}
+
+.btn-delete-task-disabled {
+  opacity: 0.65;
+  border-color: var(--border-color, #e2e8f0) !important;
+  color: var(--text-muted, #94a3b8) !important;
+  background-color: var(--bg-subtle, #f8fafc) !important;
+  cursor: not-allowed !important;
+  pointer-events: auto;
+}
+
+.btn-delete-task-disabled:hover {
+  background-color: var(--bg-subtle, #f8fafc) !important;
+  border-color: var(--border-color, #e2e8f0) !important;
+  color: var(--text-muted, #94a3b8) !important;
+  transform: none !important;
+}
+
+.btn-card-delete-task {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: var(--accent-rose, #ef4444);
+  cursor: pointer;
+  padding: 2px 7px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  line-height: 1.2;
+}
+
+.btn-card-delete-task:hover {
+  color: #dc2626;
+  background-color: rgba(239, 68, 68, 0.18);
+  border-color: #ef4444;
+}
+
+.btn-card-delete-locked {
+  background: transparent !important;
+  border: 1px dashed var(--border-color, #cbd5e1) !important;
+  color: var(--text-muted, #94a3b8) !important;
+  opacity: 0.55;
+  cursor: pointer;
+  padding: 2px 5px !important;
+}
+
+.btn-card-delete-locked:hover {
+  opacity: 0.85;
+  color: var(--text-main, #334155) !important;
+}
+
+body.dark .btn-card-delete-task {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #f87171;
+}
+
+body.dark .btn-card-delete-task:hover {
+  background-color: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+}
+
+body.dark .btn-delete-task {
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
+
+body.dark .btn-delete-task:hover {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+body.dark .btn-delete-task-disabled {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: var(--text-muted, #64748b) !important;
+}
+
+body.dark .delete-task-score-warning {
+  background: rgba(245, 158, 11, 0.15) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+body.dark .delete-task-score-warning strong {
+  color: #fbbf24 !important;
+}
+
+
 
 
 

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=2.5">
 </head>
 <body>
   <div id="app" class="app-root">
@@ -1007,7 +1007,7 @@
     <!-- MODAL 3B: TASK DETAILS, SUBTASKS & COMMENTS -->
     <div id="modal-task-detail" class="modal-backdrop">
       <div class="modal-dialog modal-lg" style="max-width: 680px;">
-        <div class="modal-header">
+        <div class="modal-header" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
           <div>
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
               <span id="task-detail-priority-badge" class="badge-priority high">High</span>
@@ -1015,7 +1015,15 @@
             </div>
             <h3 id="task-detail-title" style="margin: 0; font-size: 1.25rem;">Task Title</h3>
           </div>
-          <button class="modal-close-btn" onclick="window.App.closeModal('modal-task-detail');">✕</button>
+          <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+            <div id="task-detail-header-delete-container">
+              <button type="button" class="btn-delete-task" onclick="window.App.deleteCurrentOpenTask();" title="Permanently delete this task and update team scores">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                <span>Delete Task</span>
+              </button>
+            </div>
+            <button class="modal-close-btn" onclick="window.App.closeModal('modal-task-detail');">✕</button>
+          </div>
         </div>
 
         <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
@@ -1033,6 +1041,10 @@
             <div class="task-detail-meta-item">
               <span class="meta-label">Due Date</span>
               <span id="task-detail-due-date" class="meta-value">--</span>
+            </div>
+            <div class="task-detail-meta-item" id="task-detail-creator-container">
+              <span class="meta-label">Created By</span>
+              <span id="task-detail-creator-name" class="meta-value" style="font-weight: 500;">--</span>
             </div>
             <div class="task-detail-meta-item" id="task-detail-completed-date-container" style="display: none;">
               <span class="meta-label">Completed Date</span>
@@ -1124,8 +1136,59 @@
           </div>
         </div>
 
-        <div class="modal-footer">
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+          <div id="task-detail-delete-container">
+            <button type="button" class="btn-delete-task" onclick="window.App.deleteCurrentOpenTask();" title="Permanently delete this task and update team scores">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+              <span>Delete Task</span>
+            </button>
+          </div>
           <button type="button" class="btn btn-secondary" onclick="window.App.closeModal('modal-task-detail');">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 3C: DELETE TASK CONFIRMATION -->
+    <div id="modal-delete-task" class="modal-backdrop">
+      <div class="modal-dialog" style="max-width: 440px;">
+        <div class="modal-header" style="border-bottom: 1px solid var(--border-color, #e2e8f0); padding-bottom: 12px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(239, 68, 68, 0.12); color: #ef4444; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            </div>
+            <div>
+              <h3 style="margin: 0; font-size: 1.15rem;">Delete Task</h3>
+              <p class="modal-subtitle" style="margin: 2px 0 0; font-size: 0.8rem; color: var(--text-muted);">Permanent action & score recalculation</p>
+            </div>
+          </div>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-delete-task');">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 16px 20px;">
+          <p style="margin: 0 0 12px; font-size: 0.92rem; line-height: 1.5;">
+            Are you sure you want to permanently delete <strong id="delete-task-title-display">this task</strong>?
+          </p>
+
+          <div class="delete-task-score-warning" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 12px; display: flex; gap: 10px; margin-bottom: 14px;">
+            <div style="color: #f59e0b; flex-shrink: 0; margin-top: 2px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <div style="font-size: 0.82rem; line-height: 1.45; color: var(--text-main);">
+              <strong style="color: #d97706; display: block; margin-bottom: 3px;">Score & Leaderboard Recalculation:</strong>
+              Any performance points, priority weightings, subtask bonuses, and punctuality scores earned from this task will be subtracted from member rankings, and project completion metrics will be recalculated immediately.
+            </div>
+          </div>
+
+          <div style="font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+            <span>🛡️</span>
+            <span>Deletion is restricted to Project Admins/Owners and the Task Creator.</span>
+          </div>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" class="btn btn-secondary" onclick="window.App.closeModal('modal-delete-task');">Cancel</button>
+          <button type="button" id="btn-confirm-delete-task" class="btn btn-danger" onclick="window.App.executeDeleteTask();" style="display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <span>Delete Task</span>
+          </button>
         </div>
       </div>
     </div>
@@ -1871,6 +1934,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="app.js"></script>
+  <script src="app.js?v=2.5"></script>
 </body>
 </html>

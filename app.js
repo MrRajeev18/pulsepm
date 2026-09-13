@@ -1771,15 +1771,18 @@
     const userId = user.id || user.uid;
     const userEmail = getCurrentUserEmail(user);
 
-    // 1. Check if user is the project creator
-    if (project.creatorId && userId && project.creatorId === userId) {
+    // 1. Check if user is the project creator (by ID or Email)
+    if (project.creatorId && userId && String(project.creatorId) === String(userId)) {
+      return true;
+    }
+    if (project.creatorEmail && userEmail && project.creatorEmail.trim().toLowerCase() === userEmail) {
       return true;
     }
 
     // 2. Check if user has explicit 'Owner' role in project.members
     if (project.members && Array.isArray(project.members)) {
       const member = project.members.find(m => {
-        if (m.id && userId && m.id === userId) return true;
+        if (m.id && userId && String(m.id) === String(userId)) return true;
         if (m.email && userEmail && m.email.trim().toLowerCase() === userEmail) return true;
         return false;
       });
@@ -1790,7 +1793,7 @@
       // 3. If project has no creatorId specified, fallback to first member
       if (!project.creatorId && project.members.length > 0) {
         const first = project.members[0];
-        if (first.id && userId && first.id === userId) return true;
+        if (first.id && userId && String(first.id) === String(userId)) return true;
         if (first.email && userEmail && first.email.trim().toLowerCase() === userEmail) return true;
       }
     }
@@ -1802,7 +1805,8 @@
     if (!project || !user) return false;
     const userId = user.id || user.uid;
     const userEmail = getCurrentUserEmail(user);
-    if (project.creatorId && userId && project.creatorId === userId) return true;
+    if (project.creatorId && userId && String(project.creatorId) === String(userId)) return true;
+    if (project.creatorEmail && userEmail && project.creatorEmail.trim().toLowerCase() === userEmail) return true;
     return isProjectOwner(project, user);
   }
 
@@ -3869,6 +3873,7 @@
         assigneeAvatar = assigneeName ? assigneeName.split(' ').map(n => n[0]).join('').toUpperCase() : '--';
       }
       const canChangeStatus = project ? canUserChangeTaskStatus(project, t, state.currentUser) : true;
+      const canDelete = project ? canUserDeleteTask(project, t, state.currentUser) : false;
 
       const subtasks = t.subtasks || [];
       const completedSubtasks = subtasks.filter(st => st.completed).length;
@@ -3890,7 +3895,19 @@
       html += `
         <div class="kanban-card">
           <div class="kanban-card-top">
-            <span class="badge-priority ${priorityClass}">${escapeHtml(t.priority)}</span>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span class="badge-priority ${priorityClass}">${escapeHtml(t.priority)}</span>
+              ${canDelete ? `
+                <button type="button" class="btn-card-delete-task" onclick="event.stopPropagation(); window.App.confirmDeleteTask('${projectId}', '${t.id}');" title="Delete Task (Admin or Creator)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                  <span>Delete</span>
+                </button>
+              ` : `
+                <button type="button" class="btn-card-delete-task btn-card-delete-locked" onclick="event.stopPropagation(); window.App.showTaskDeletePermissionWarning();" title="🔒 Only Project Admins/Owners and the Task Creator can delete this deliverable">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </button>
+              `}
+            </div>
             <div class="task-dates-group" style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
               <span class="task-due-date" style="font-size: 0.72rem;">${t.status === 'completed' ? 'Due: ' : ''}${escapeHtml(formatDate(t.dueDate))}</span>
               ${t.status === 'completed' ? `
@@ -4254,6 +4271,39 @@
     // Render comments
     renderTaskComments(project, task);
 
+    // Set dataset on modal element for instant fallback retrieval
+    const modalEl = document.getElementById('modal-task-detail');
+    if (modalEl) {
+      modalEl.dataset.projectId = project.id;
+      modalEl.dataset.taskId = task.id;
+    }
+
+    // Render Creator Name
+    const creatorEl = document.getElementById('task-detail-creator-name');
+    if (creatorEl) {
+      creatorEl.innerText = task.creatorName || (task.creatorEmail ? task.creatorEmail.split('@')[0] : 'Project Lead');
+    }
+
+    // Render delete button in both header and footer
+    const canDelete = canUserDeleteTask(project, task, state.currentUser);
+    const headerDeleteContainer = document.getElementById('task-detail-header-delete-container');
+    const footerDeleteContainer = document.getElementById('task-detail-delete-container');
+
+    const deleteBtnHtml = canDelete ? `
+      <button type="button" class="btn-delete-task" onclick="window.App.confirmDeleteTask('${escapeHtml(project.id)}', '${escapeHtml(task.id)}');" title="Permanently delete this task and update team scores">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        <span>Delete Task</span>
+      </button>
+    ` : `
+      <button type="button" class="btn-delete-task btn-delete-task-disabled" onclick="window.App.showTaskDeletePermissionWarning();" title="🔒 Only Project Admins/Owners and the Task Creator can delete this deliverable">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span>Delete Task 🔒</span>
+      </button>
+    `;
+
+    if (headerDeleteContainer) headerDeleteContainer.innerHTML = deleteBtnHtml;
+    if (footerDeleteContainer) footerDeleteContainer.innerHTML = deleteBtnHtml;
+
     openModal('modal-task-detail');
   }
 
@@ -4331,6 +4381,136 @@
     updateTaskTabBadges(project);
 
     showToast(`Task reassigned to ${newMember.name}!`, 'success');
+  }
+
+  // =========================================================
+  // TASK DELETION & SCORE IMPACT PERMISSION CONTROLS
+  // =========================================================
+  function canUserDeleteTask(project, task, user) {
+    if (!project || !task || !user) return false;
+
+    // 1. Check if user is Project Admin, Project Owner, or Project Creator
+    if (isProjectAdmin(project, user) || isProjectOwner(project, user) || isProjectCreator(project, user)) {
+      return true;
+    }
+
+    // 2. Check if user is the Creator of the task
+    const userId = user.id || user.uid;
+    const userEmail = getCurrentUserEmail(user);
+    const userName = (user.name || '').trim().toLowerCase();
+    const member = getProjectMemberForUser(project, user);
+    const memberId = member ? member.id : null;
+
+    if (task.creatorId && ((userId && String(task.creatorId) === String(userId)) || (memberId && String(task.creatorId) === String(memberId)))) {
+      return true;
+    }
+    if (task.createdBy && ((userId && String(task.createdBy) === String(userId)) || (memberId && String(task.createdBy) === String(memberId)))) {
+      return true;
+    }
+    if (task.creatorEmail && userEmail && task.creatorEmail.trim().toLowerCase() === userEmail.trim().toLowerCase()) {
+      return true;
+    }
+    if (task.creatorName && userName && task.creatorName.trim().toLowerCase() === userName) {
+      return true;
+    }
+
+    // 3. Fallback for legacy tasks with no creator recorded: allow Admin/Owner/Lead
+    if (!task.creatorId && !task.createdBy && !task.creatorEmail && !task.creatorName) {
+      if (isProjectAdmin(project, user) || isProjectOwner(project, user) || isProjectCreator(project, user)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function deleteCurrentOpenTask() {
+    const modalEl = document.getElementById('modal-task-detail');
+    const projectId = modalEl ? modalEl.dataset.projectId : null;
+    const taskId = modalEl ? modalEl.dataset.taskId : null;
+    if (projectId && taskId) {
+      confirmDeleteTask(projectId, taskId);
+    } else if (state.activeProjectId) {
+      const proj = state.projects.find(p => p.id === state.activeProjectId);
+      if (proj && proj.tasks && proj.tasks.length > 0) {
+        confirmDeleteTask(proj.id, proj.tasks[0].id);
+      }
+    }
+  }
+
+  function showTaskDeletePermissionWarning() {
+    showToast('🔒 Task deletion restricted: Only Project Admins/Owners and the Task Creator have permission to delete this deliverable.', 'warning');
+  }
+
+  let pendingDeleteTaskContext = null;
+
+  function confirmDeleteTask(projectId, taskId) {
+    const project = state.projects.find(p => p.id === projectId);
+    if (!project) return;
+    const task = (project.tasks || []).find(t => t.id === taskId);
+    if (!task) return;
+
+    if (!canUserDeleteTask(project, task, state.currentUser)) {
+      showToast('You do not have permission to delete this task. Only Admins and the Task Creator can delete it.', 'error');
+      return;
+    }
+
+    pendingDeleteTaskContext = { projectId, taskId, taskTitle: task.title };
+
+    const titleEl = document.getElementById('delete-task-title-display');
+    if (titleEl) {
+      titleEl.innerText = `"${task.title}"`;
+    }
+
+    openModal('modal-delete-task');
+  }
+
+  function executeDeleteTask() {
+    if (!pendingDeleteTaskContext) return;
+    const { projectId, taskId } = pendingDeleteTaskContext;
+    pendingDeleteTaskContext = null;
+    closeModal('modal-delete-task');
+    deleteTask(projectId, taskId);
+  }
+
+  function deleteTask(projectId, taskId) {
+    const project = state.projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    const taskIndex = (project.tasks || []).findIndex(t => t.id === taskId);
+    if (taskIndex === -1) return;
+
+    const task = project.tasks[taskIndex];
+
+    if (!canUserDeleteTask(project, task, state.currentUser)) {
+      showToast('You do not have permission to delete this task. Only Admins and the Task Creator can delete it.', 'error');
+      return;
+    }
+
+    const taskTitle = task.title || 'Untitled';
+    project.tasks.splice(taskIndex, 1);
+
+    // Audit log in activity feed
+    project.activity.unshift({
+      id: 'act-' + Date.now(),
+      text: `${state.currentUser.name} deleted task "${taskTitle}" (Leaderboard scores & progress recalculated)`,
+      time: 'Just now',
+      icon: 'task'
+    });
+
+    saveState();
+    syncProjectToFirestore(project);
+
+    // Close task detail modal if open
+    closeModal('modal-task-detail');
+
+    // Re-render project detail and home views
+    if (state.activeProjectId === projectId) {
+      renderProjectDetail(project);
+    }
+    renderHome();
+
+    showToast(`Task "${taskTitle}" deleted. Team scores and analytics updated.`, 'success');
   }
 
   function renderTaskSubtasks(project, task) {
@@ -5005,13 +5185,26 @@
     if (!project || !user) return false;
     const userId = user.id || user.uid;
     const userEmail = getCurrentUserEmail(user);
-    if (!project.creatorId || project.creatorId === userId) return true;
-    if (user.role === 'admin' || user.role === 'Admin') return true;
-    const member = project.members && project.members.find(m => 
-      (m.id && userId && m.id === userId) ||
-      (m.email && userEmail && m.email.trim().toLowerCase() === userEmail)
-    );
-    if (member && ['Owner', 'Project Lead', 'Admin', 'Lead'].includes(member.role)) return true;
+
+    // 1. Project creator by ID or Email
+    if (!project.creatorId) return true;
+    if (userId && String(project.creatorId) === String(userId)) return true;
+    if (project.creatorEmail && userEmail && project.creatorEmail.trim().toLowerCase() === userEmail) return true;
+
+    // 2. Global user role
+    const uRole = (user.role || '').toLowerCase();
+    if (['admin', 'owner', 'project lead', 'lead', 'product lead', 'manager'].some(r => uRole.includes(r))) return true;
+
+    // 3. Project member role
+    const member = getProjectMemberForUser(project, user);
+    if (member) {
+      const mRole = (member.role || '').toLowerCase();
+      if (['owner', 'project lead', 'admin', 'lead', 'product lead', 'manager', 'creator'].some(r => mRole.includes(r))) return true;
+    }
+
+    // 4. Project owner / creator
+    if (isProjectOwner(project, user) || isProjectCreator(project, user)) return true;
+
     return false;
   }
 
@@ -6166,6 +6359,11 @@
       assigneeId: assigneeMember.id,
       assigneeName: assigneeMember.name,
       assigneeEmail: assigneeMember.email || getCurrentUserEmail(assigneeMember) || '',
+      creatorId: selfId || state.currentUser.id,
+      createdBy: selfId || state.currentUser.id,
+      creatorName: state.currentUser.name || 'Admin',
+      creatorEmail: state.currentUser.email || getCurrentUserEmail(state.currentUser) || '',
+      createdAt: new Date().toISOString(),
       status: 'pending',
       subtasks: [],
       comments: []
@@ -7777,6 +7975,12 @@
     toggleProjectSettingsDropdown,
     closeProjectSettingsDropdown,
     renderTaskCards,
+    canUserDeleteTask,
+    deleteCurrentOpenTask,
+    confirmDeleteTask,
+    executeDeleteTask,
+    deleteTask,
+    showTaskDeletePermissionWarning,
     state
   };
 
