@@ -1711,6 +1711,7 @@
     }
 
     state.activeProjectId = projectId;
+    headerDescExpanded = false;
     document.getElementById('home-view').style.display = 'none';
     document.getElementById('project-detail-view').style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2436,6 +2437,51 @@
   // =========================================================
   // 8. PROJECT DETAIL PANEL RENDERING (Overview, Tasks, Chats)
   // =========================================================
+  let headerDescExpanded = false;
+
+  function renderHeaderProjectDescription(desc) {
+    const descEl = document.getElementById('detail-project-desc');
+    if (!descEl) return;
+    if (!desc || !desc.trim()) {
+      descEl.innerHTML = '';
+      descEl.style.display = 'none';
+      return;
+    }
+    descEl.style.display = '';
+
+    const cleanDesc = desc.trim();
+    // Split by any sequence of whitespace to count words accurately
+    const words = cleanDesc.split(/\s+/);
+    const WORD_LIMIT = 20;
+
+    if (words.length <= WORD_LIMIT) {
+      descEl.innerText = cleanDesc;
+      descEl.removeAttribute('title');
+      return;
+    }
+
+    if (headerDescExpanded) {
+      descEl.innerHTML = `<span class="desc-text-full">${escapeHtml(cleanDesc).replace(/\n/g, '<br>')}</span> <button type="button" class="desc-toggle-btn" onclick="window.App.toggleHeaderDesc(event)" title="Show less description">(less)</button>`;
+      descEl.removeAttribute('title');
+    } else {
+      const truncated = words.slice(0, WORD_LIMIT).join(' ');
+      descEl.innerHTML = `<span class="desc-text-truncated">${escapeHtml(truncated)}...</span> <button type="button" class="desc-toggle-btn" onclick="window.App.toggleHeaderDesc(event)" title="Show full description">(more)</button>`;
+      descEl.setAttribute('title', cleanDesc);
+    }
+  }
+
+  function toggleHeaderDesc(e) {
+    if (e) {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopPropagation === 'function') e.stopPropagation();
+    }
+    headerDescExpanded = !headerDescExpanded;
+    const project = getActiveProject();
+    if (project) {
+      renderHeaderProjectDescription(project.description);
+    }
+  }
+
   function renderProjectDetail(project) {
     if (!project) return;
     closeProjectSettingsDropdown();
@@ -2444,7 +2490,7 @@
     // Header info
     document.getElementById('detail-project-group').innerText = project.group;
     document.getElementById('detail-project-name').innerText = project.name;
-    document.getElementById('detail-project-desc').innerText = project.description;
+    renderHeaderProjectDescription(project.description);
     document.getElementById('detail-project-dates').innerText = formatDate(project.startDate) + ' - ' + formatDate(project.deadline);
     document.getElementById('detail-deadline-pill').innerText = calculateDaysRemaining(project.deadline);
 
@@ -2553,7 +2599,10 @@
   }
 
   function renderProjectOverview(project) {
-    document.getElementById('overview-full-desc').innerText = project.description;
+    const fullDescEl = document.getElementById('overview-full-desc');
+    if (fullDescEl) {
+      fullDescEl.innerText = project.description || '';
+    }
 
     const totalTasks = project.tasks.length;
     const completedTasks = project.tasks.filter(t => t.status === 'completed').length;
@@ -9546,6 +9595,8 @@
     renderCreateRankingsViewersList,
     renderProjectOverview,
     renderProjectDetail,
+    renderHeaderProjectDescription,
+    toggleHeaderDesc,
     canUserChangeTaskStatus,
     renderMemberTaskCompletionDonut,
     highlightDonutMember,

@@ -1389,7 +1389,29 @@ textarea:focus {
   color: var(--text-secondary);
   font-size: 0.9375rem;
   margin-bottom: 12px;
-  max-width: 700px;
+  max-width: 720px;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.desc-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 4px;
+  margin-left: 4px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  display: inline-block;
+  vertical-align: baseline;
+  transition: color 0.15s ease;
+}
+
+.desc-toggle-btn:hover {
+  color: var(--primary-hover);
 }
 
 .project-dates-badge {
