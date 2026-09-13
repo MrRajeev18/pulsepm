@@ -436,6 +436,20 @@
               try { firestoreProjectsUnsubscribe(); } catch(e){}
               firestoreProjectsUnsubscribe = null;
             }
+            if (state.isLoggedIn) {
+              state.isLoggedIn = false;
+              state.currentUser = null;
+              state.activeProjectId = null;
+              state.projects = [];
+              state.collaborators = [];
+              state.notifications = [];
+              try {
+                localStorage.removeItem(STORAGE_KEY);
+                localStorage.removeItem('pulsepm_custom_phone_demo');
+              } catch(e){}
+              document.getElementById('main-app').style.display = 'none';
+              document.getElementById('auth-view').style.display = 'flex';
+            }
           }
         });
         return;
@@ -1199,6 +1213,16 @@
       }
     };
 
+    const prevUserId = state.currentUser ? (state.currentUser.id || state.currentUser.uid) : null;
+    const prevUserEmail = state.currentUser ? ((state.currentUser.email || '').trim().toLowerCase()) : null;
+    const newUid = user.uid || user.id;
+    const newEmail = userEmail.toLowerCase();
+    if ((prevUserId && String(prevUserId) !== String(newUid)) || (prevUserEmail && prevUserEmail !== newEmail)) {
+      state.projects = [];
+      state.activeProjectId = null;
+      state.notifications = [];
+    }
+
     state.currentUser = unifiedUser;
     state.isLoggedIn = true;
 
@@ -1559,11 +1583,17 @@
       firebaseAuth.signOut().catch(err => console.warn('Sign out error:', err));
     }
     state.isLoggedIn = false;
+    state.currentUser = null;
     state.activeProjectId = null;
+    state.projects = [];
+    state.collaborators = [];
+    state.notifications = [];
     closeAllModals();
     closeProfileMenu();
-    try { localStorage.removeItem('pulsepm_custom_phone_demo'); } catch(e){}
-    saveState();
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('pulsepm_custom_phone_demo');
+    } catch(e){}
 
     document.getElementById('main-app').style.display = 'none';
     document.getElementById('auth-view').style.display = 'flex';
@@ -1759,7 +1789,10 @@
     }
 
     // 2. Check if user is the project creator
-    if (project.creatorId && userId && project.creatorId === userId) {
+    if (project.creatorId && userId && String(project.creatorId) === String(userId)) {
+      return true;
+    }
+    if (project.creatorEmail && userEmail && project.creatorEmail.trim().toLowerCase() === userEmail) {
       return true;
     }
 
@@ -1785,15 +1818,15 @@
       const member = project.members.find(m => {
         if (m.id && userId && String(m.id) === String(userId)) return true;
         if (m.email && userEmail && m.email.trim().toLowerCase() === userEmail) return true;
-        if (m.name && userName && isNameMatch(m.name, userName)) return true;
+        if (!m.id && !m.email && m.name && userName && isNameMatch(m.name, userName)) return true;
         return false;
       });
       if (member && ['owner', 'project lead', 'admin'].some(r => (member.role || '').toLowerCase().includes(r))) {
         return true;
       }
 
-      // 3. If project has no creatorId specified, fallback to first member only if no explicit owner exists
-      if (!project.creatorId && project.members.length > 0) {
+      // 3. If project has no creatorId or creatorEmail specified, fallback to first member only if no explicit owner exists
+      if (!project.creatorId && !project.creatorEmail && project.members.length > 0) {
         const hasExplicitOwner = project.members.some(m => ['owner', 'project lead', 'admin'].some(r => (m.role || '').toLowerCase().includes(r)));
         if (!hasExplicitOwner) {
           const first = project.members[0];
@@ -1889,7 +1922,7 @@
     return project.members.find(m => {
       if (m.id && userId && String(m.id) === String(userId)) return true;
       if (m.email && userEmail && m.email.trim().toLowerCase() === userEmail) return true;
-      if (m.name && user.name && isNameMatch(m.name, user.name)) return true;
+      if (!m.id && !m.email && m.name && user.name && isNameMatch(m.name, user.name)) return true;
       return false;
     }) || null;
   }
@@ -1903,7 +1936,7 @@
     if (task.creatorId && userId && String(task.creatorId) === String(userId)) return true;
     if (task.createdBy && userId && String(task.createdBy) === String(userId)) return true;
     if (task.creatorEmail && userEmail && task.creatorEmail.trim().toLowerCase() === userEmail.trim().toLowerCase()) return true;
-    if (task.creatorName && userName && (task.creatorName.trim().toLowerCase() === userName || isNameMatch(task.creatorName, user.name))) return true;
+    if (!task.creatorId && !task.createdBy && !task.creatorEmail && task.creatorName && userName && (task.creatorName.trim().toLowerCase() === userName || isNameMatch(task.creatorName, user.name))) return true;
 
     return false;
   }
@@ -4205,7 +4238,7 @@
 
     if (task.assigneeId && userId && String(task.assigneeId) === String(userId)) return true;
     if (task.assigneeEmail && userEmail && task.assigneeEmail.trim().toLowerCase() === userEmail) return true;
-    if (task.assigneeName && userName && (task.assigneeName.trim().toLowerCase() === userName || isNameMatch(task.assigneeName, user.name))) return true;
+    if (!task.assigneeId && !task.assigneeEmail && task.assigneeName && userName && (task.assigneeName.trim().toLowerCase() === userName || isNameMatch(task.assigneeName, user.name))) return true;
     return false;
   }
 
@@ -5326,15 +5359,6 @@
       if (['owner', 'project lead', 'admin', 'lead', 'product lead', 'manager', 'creator'].some(r => mRole.includes(r))) return true;
     }
 
-    // 3b. Direct name match in project.members
-    const userName = (user.name || '').trim();
-    if (userName && Array.isArray(project.members)) {
-      const matchByName = project.members.find(m => isNameMatch(m.name, userName));
-      if (matchByName) {
-        const mRole = (matchByName.role || '').toLowerCase();
-        if (['owner', 'project lead', 'admin', 'lead', 'product lead', 'manager', 'creator'].some(r => mRole.includes(r))) return true;
-      }
-    }
 
     // 4. Project owner / creator
     if (isProjectOwner(project, user) || isProjectCreator(project, user)) return true;
