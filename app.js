@@ -2639,51 +2639,67 @@
         const isSpecial = project.specialAssigners && project.specialAssigners.includes(m.id);
         const isSpecialInviter = project.specialInviters && project.specialInviters.includes(m.id);
 
-        let assignerBadge = '';
+        // Creator badge next to name
+        let creatorTag = '';
         if (isMemberCreator) {
-          assignerBadge = `<span class="badge-special-assigner" title="Project Creator has full authority">👑 Creator</span>`;
-        } else {
+          creatorTag = `<span class="badge-creator-tag" title="Project Creator & Owner">👑 Creator</span>`;
+        }
+
+        // Secondary authority badges or creator toggle actions
+        let actionsOrBadgesHtml = '';
+        if (isCurrentUserCreator && !isMemberCreator) {
+          // Creator interactive toggles
+          if (project.taskAssignmentPolicy === 'specific_members') {
+            actionsOrBadgesHtml += `
+              <button class="btn-toggle-assigner ${isSpecial ? 'active' : ''}"
+                      onclick="window.App.toggleSpecialAssigner('${project.id}', '${m.id}')"
+                      title="${isSpecial ? 'Click to revoke Specific Assigner permission' : 'Click to appoint as Specific Assigner'}">
+                <span class="btn-toggle-icon-normal">${isSpecial ? '★' : '+'}</span>
+                <span class="btn-toggle-icon-remove">✕</span>
+                <span>Assigner</span>
+              </button>
+            `;
+          }
+          if (project.memberInvitationPolicy === 'specific_members') {
+            actionsOrBadgesHtml += `
+              <button class="btn-toggle-assigner btn-toggle-inviter ${isSpecialInviter ? 'active' : ''}"
+                      onclick="window.App.toggleSpecialInviter('${project.id}', '${m.id}')"
+                      title="${isSpecialInviter ? 'Click to revoke Specific Inviter permission' : 'Click to appoint as Specific Inviter'}">
+                <span class="btn-toggle-icon-normal">${isSpecialInviter ? '✉️' : '+'}</span>
+                <span class="btn-toggle-icon-remove">✕</span>
+                <span>Inviter</span>
+              </button>
+            `;
+          }
+        } else if (!isMemberCreator) {
+          // Read-only badges for other members
           if (isSpecial) {
-            assignerBadge += `<span class="badge-special-assigner" title="Designated Special Assigner">⭐ Assigner</span> `;
+            actionsOrBadgesHtml += `<span class="badge-special-assigner" title="Designated Special Assigner">⭐ Assigner</span>`;
           }
           if (isSpecialInviter) {
-            assignerBadge += `<span class="badge-special-assigner" style="background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25);" title="Designated Special Inviter">✉️ Inviter</span>`;
+            actionsOrBadgesHtml += `<span class="badge-special-assigner badge-inviter-tag" title="Designated Special Inviter">✉️ Inviter</span>`;
           }
         }
 
-        let creatorActionBtn = '';
-        if (isCurrentUserCreator && !isMemberCreator && project.taskAssignmentPolicy === 'specific_members') {
-          creatorActionBtn += `
-            <button class="btn-toggle-assigner ${isSpecial ? 'active' : ''}"
-                    onclick="window.App.toggleSpecialAssigner('${project.id}', '${m.id}')"
-                    title="${isSpecial ? 'Revoke special assigner privilege' : 'Grant special assigner privilege'}">
-              ${isSpecial ? '★ Remove Assigner' : '+ Appoint Assigner'}
-            </button>
-          `;
-        }
-        if (isCurrentUserCreator && !isMemberCreator && project.memberInvitationPolicy === 'specific_members') {
-          creatorActionBtn += `
-            <button class="btn-toggle-assigner ${isSpecialInviter ? 'active' : ''}"
-                    style="${isSpecialInviter ? 'border-color: #10b981; color: #10b981; background: rgba(16, 185, 129, 0.1);' : ''}"
-                    onclick="window.App.toggleSpecialInviter('${project.id}', '${m.id}')"
-                    title="${isSpecialInviter ? 'Revoke special inviter privilege' : 'Grant special inviter privilege'}">
-              ${isSpecialInviter ? '✉️ Remove Inviter' : '+ Appoint Inviter'}
-            </button>
-          `;
-        }
+        const canEditRole = isCurrentUserCreator || (state.currentUser && state.currentUser.id === m.id);
 
         rosterHtml += `
           <div class="team-member-row">
             <div class="member-info">
               <div class="member-avatar">${renderAvatarInnerHtml(m.avatar, m.name)}</div>
               <div class="member-names">
-                <strong>${escapeHtml(m.name)} ${assignerBadge}</strong>
-                <span>${escapeHtml(m.email)}</span>
+                <div class="member-name-row">
+                  <strong class="member-name-text" title="${escapeHtml(m.name)}">${escapeHtml(m.name)}</strong>
+                  ${creatorTag}
+                </div>
+                <span class="member-email-text" title="${escapeHtml(m.email)}">${escapeHtml(m.email)}</span>
               </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="member-role-badge" ${(isCurrentUserCreator || (state.currentUser && state.currentUser.id === m.id)) ? `onclick="window.App.openEditMemberRoleModal('${project.id}', '${m.id}')" style="cursor: pointer;" title="Click to edit role"` : ''}>${escapeHtml(m.role || 'Member')}</span>
-              ${creatorActionBtn}
+            <div class="member-meta-col">
+              <div class="member-role-row">
+                <span class="member-role-badge ${isMemberCreator ? 'role-owner' : ''}" ${canEditRole ? `onclick="window.App.openEditMemberRoleModal('${project.id}', '${m.id}')" style="cursor: pointer;" title="Click to edit role"` : ''}>${escapeHtml(m.role || 'Member')}</span>
+              </div>
+              ${actionsOrBadgesHtml ? `<div class="member-actions-row">${actionsOrBadgesHtml}</div>` : ''}
             </div>
           </div>
         `;
