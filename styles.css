@@ -2403,8 +2403,18 @@ textarea:focus {
   width: 100%;
   max-width: 520px;
   max-height: 90vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   animation: scaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-dialog > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .modal-dialog.modal-lg {
@@ -2421,6 +2431,9 @@ textarea:focus {
   justify-content: space-between;
   padding: 22px 24px 16px 24px;
   border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  background-color: var(--bg-card);
+  z-index: 10;
 }
 
 .task-detail-modal-header {
@@ -2429,6 +2442,9 @@ textarea:focus {
   justify-content: space-between !important;
   gap: 16px !important;
   padding: 18px 24px !important;
+  flex-shrink: 0 !important;
+  background-color: var(--bg-card) !important;
+  z-index: 10 !important;
 }
 
 .task-detail-header-content {
@@ -2493,6 +2509,9 @@ textarea:focus {
 
 .modal-body {
   padding: 20px 24px;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .modal-footer {
@@ -2505,6 +2524,8 @@ textarea:focus {
   background-color: var(--bg-subtle);
   border-bottom-left-radius: var(--radius-lg);
   border-bottom-right-radius: var(--radius-lg);
+  flex-shrink: 0;
+  z-index: 10;
 }
 
 /* Invite Modal Tabs - Space Optimized */
