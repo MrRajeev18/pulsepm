@@ -4581,6 +4581,28 @@
     showToast(`Task "${taskTitle}" deleted. Team scores and analytics updated.`, 'success');
   }
 
+  function canUserManageTaskSubtasks(project, task, user) {
+    if (!project || !task || !user) return false;
+    // 1. Admin / Owner / Creator
+    if (isProjectAdmin(project, user) || isProjectOwner(project, user) || isProjectCreator(project, user)) return true;
+    // 2. Task Creator
+    if (isTaskCreator(task, user)) return true;
+    // 3. Assigned Member
+    if (isTaskAssignee(task, user) || isTaskAssignedToUser(task, user)) return true;
+    return false;
+  }
+
+  function canUserCommentOnTask(project, task, user) {
+    if (!project || !task || !user) return false;
+    // 1. Admin / Owner / Creator
+    if (isProjectAdmin(project, user) || isProjectOwner(project, user) || isProjectCreator(project, user)) return true;
+    // 2. Task Creator
+    if (isTaskCreator(task, user)) return true;
+    // 3. Assigned Member
+    if (isTaskAssignee(task, user) || isTaskAssignedToUser(task, user)) return true;
+    return false;
+  }
+
   function renderTaskSubtasks(project, task) {
     const listContainer = document.getElementById('task-subtasks-list');
     const progressLabel = document.getElementById('subtasks-progress-label');
@@ -4595,6 +4617,17 @@
     if (progressLabel) progressLabel.innerText = `${completed}/${total} Completed (${pct}%)`;
     if (progressFill) progressFill.style.width = `${pct}%`;
 
+    const canManageSubtasks = canUserManageTaskSubtasks(project, task, state.currentUser);
+    const subtaskForm = document.getElementById('form-add-subtask');
+    const subtaskLockedHint = document.getElementById('subtask-locked-hint');
+
+    if (subtaskForm) {
+      subtaskForm.style.display = canManageSubtasks ? 'flex' : 'none';
+    }
+    if (subtaskLockedHint) {
+      subtaskLockedHint.style.display = canManageSubtasks ? 'none' : 'block';
+    }
+
     if (total === 0) {
       listContainer.innerHTML = `
         <div class="subtask-empty-hint">
@@ -4608,12 +4641,15 @@
     task.subtasks.forEach(st => {
       html += `
         <div class="subtask-item">
-          <label class="subtask-left" style="margin: 0; cursor: pointer;">
+          <label class="subtask-left" style="margin: 0; cursor: ${canManageSubtasks ? 'pointer' : 'default'};">
             <input type="checkbox" class="subtask-checkbox" ${st.completed ? 'checked' : ''}
-                   onchange="window.App.toggleSubtask('${project.id}', '${task.id}', '${st.id}', this.checked)">
+                   ${canManageSubtasks ? `onchange="window.App.toggleSubtask('${project.id}', '${task.id}', '${st.id}', this.checked)"` : 'disabled'}
+                   title="${canManageSubtasks ? (st.completed ? 'Mark as incomplete' : 'Mark as completed') : 'Subtask checklist updates are restricted to Admin, Creator, and Assignee'}">
             <span class="subtask-title ${st.completed ? 'completed' : ''}">${escapeHtml(st.title)}</span>
           </label>
-          <button type="button" class="btn-delete-subtask" onclick="window.App.handleDeleteSubtask('${project.id}', '${task.id}', '${st.id}')" title="Delete subtask">✕</button>
+          ${canManageSubtasks ? `
+            <button type="button" class="btn-delete-subtask" onclick="window.App.handleDeleteSubtask('${project.id}', '${task.id}', '${st.id}')" title="Delete subtask">✕</button>
+          ` : ''}
         </div>
       `;
     });
@@ -4658,20 +4694,27 @@
       listContainer.scrollTop = listContainer.scrollHeight;
     }
 
-    // Assignee check
+    // Permission check: Admin, Creator, or Assignee can comment
+    const canComment = canUserCommentOnTask(project, task, state.currentUser);
     const isAssignee = isTaskAssignee(task, state.currentUser);
-    const assigneeName = task.assigneeName || 'the assigned member';
+    const isAdmin = isProjectAdmin(project, state.currentUser) || isProjectOwner(project, state.currentUser);
+    const isCreator = isTaskCreator(task, state.currentUser);
 
-    if (isAssignee) {
+    if (canComment) {
       if (formContainer) formContainer.style.display = 'block';
       if (lockedAlert) lockedAlert.style.display = 'none';
-      if (activeBadge) activeBadge.innerText = `✍️ Commenting as Assigned Member (${state.currentUser ? state.currentUser.name : ''})`;
+      if (activeBadge) {
+        let roleBadge = 'Assigned Member';
+        if (isAdmin && !isAssignee) roleBadge = 'Project Admin';
+        else if (isCreator && !isAssignee) roleBadge = 'Task Creator';
+        activeBadge.innerText = `✍️ Commenting as ${roleBadge} (${state.currentUser ? state.currentUser.name : ''})`;
+      }
     } else {
       if (formContainer) formContainer.style.display = 'none';
       if (lockedAlert) {
         lockedAlert.style.display = 'flex';
         if (lockedMessage) {
-          lockedMessage.innerText = `Only the assigned member (${assigneeName}) can post comments on this task. Other members can view comments in read-only mode.`;
+          lockedMessage.innerText = 'Commenting on this task is restricted to Project Admins, the Task Creator, and the Assigned Member. Other members can view updates in read-only mode.';
         }
       }
     }
@@ -4687,6 +4730,11 @@
     if (!project) return;
     const task = (project.tasks || []).find(t => t.id === taskId);
     if (!task || !task.subtasks) return;
+
+    if (!canUserManageTaskSubtasks(project, task, state.currentUser)) {
+      showToast('🔒 Permission denied: Only Admins, the Task Creator, and the Assigned Member can update subtasks.', 'error');
+      return;
+    }
 
     const subtask = task.subtasks.find(st => st.id === subtaskId);
     if (!subtask) return;
@@ -4711,6 +4759,11 @@
     if (!project) return;
     const task = (project.tasks || []).find(t => t.id === state.activeDetailTaskId);
     if (!task) return;
+
+    if (!canUserManageTaskSubtasks(project, task, state.currentUser)) {
+      showToast('🔒 Permission denied: Only Admins, the Task Creator, and the Assigned Member can add subtasks.', 'error');
+      return;
+    }
 
     const input = document.getElementById('input-new-subtask');
     if (!input) return;
@@ -4742,6 +4795,11 @@
     const task = (project.tasks || []).find(t => t.id === taskId);
     if (!task || !task.subtasks) return;
 
+    if (!canUserManageTaskSubtasks(project, task, state.currentUser)) {
+      showToast('🔒 Permission denied: Only Admins, the Task Creator, and the Assigned Member can delete subtasks.', 'error');
+      return;
+    }
+
     task.subtasks = task.subtasks.filter(st => st.id !== subtaskId);
     saveState();
     syncProjectToFirestore(project);
@@ -4762,9 +4820,9 @@
     const task = (project.tasks || []).find(t => t.id === state.activeDetailTaskId);
     if (!task) return;
 
-    // Strict assignee-only permission guard
-    if (!isTaskAssignee(task, state.currentUser)) {
-      showToast(`Only the assigned member (${task.assigneeName}) can post comments on this task.`, 'error');
+    // Permission guard: Admin, Creator, and Assignee can post comments
+    if (!canUserCommentOnTask(project, task, state.currentUser)) {
+      showToast('🔒 Permission denied: Only Project Admins, the Task Creator, and the Assigned Member can post comments.', 'error');
       return;
     }
 
@@ -8055,6 +8113,8 @@
     renderTaskCards,
     canUserDeleteTask,
     canUserReassignTask,
+    canUserManageTaskSubtasks,
+    canUserCommentOnTask,
     isTaskCreator,
     deleteCurrentOpenTask,
     confirmDeleteTask,
