@@ -3681,7 +3681,32 @@
       container.style.display = select.value === 'selected' ? 'block' : 'none';
     }
 
+    syncRankingsVisCards(select.value);
+
     openModal('modal-rankings-visibility');
+  }
+
+  function selectRankingsVisCard(val) {
+    const select = document.getElementById('rankings-vis-policy-select');
+    if (select) {
+      select.value = val;
+    }
+    toggleRankingsVisMemberList(val);
+    syncRankingsVisCards(val);
+  }
+
+  function syncRankingsVisCards(val) {
+    const cards = document.querySelectorAll('#rankings-vis-cards-grid .policy-card-option');
+    cards.forEach(card => {
+      const cardPolicy = card.getAttribute('data-policy');
+      if (cardPolicy === val) {
+        card.classList.add('selected');
+        card.setAttribute('aria-checked', 'true');
+      } else {
+        card.classList.remove('selected');
+        card.setAttribute('aria-checked', 'false');
+      }
+    });
   }
 
   function toggleRankingsVisMemberList(val) {
@@ -3689,6 +3714,7 @@
     if (container) {
       container.style.display = val === 'selected' ? 'block' : 'none';
     }
+    syncRankingsVisCards(val);
   }
 
   function handleSaveRankingsVisibility(e) {
@@ -3778,8 +3804,32 @@
     }
 
     updateAssignPolicyNoticeText(select.value);
+    syncAssignPolicyCards(select.value);
 
     openModal('modal-assignment-policy');
+  }
+
+  function selectAssignPolicyCard(val) {
+    const select = document.getElementById('assign-policy-select');
+    if (select) {
+      select.value = val;
+    }
+    toggleAssignPolicyMemberList(val);
+    syncAssignPolicyCards(val);
+  }
+
+  function syncAssignPolicyCards(val) {
+    const cards = document.querySelectorAll('#assign-policy-cards-grid .policy-card-option');
+    cards.forEach(card => {
+      const cardPolicy = card.getAttribute('data-policy');
+      if (cardPolicy === val || (cardPolicy === 'admin_and_self' && val === 'creator_admin')) {
+        card.classList.add('selected');
+        card.setAttribute('aria-checked', 'true');
+      } else {
+        card.classList.remove('selected');
+        card.setAttribute('aria-checked', 'false');
+      }
+    });
   }
 
   function updateAssignPolicyNoticeText(val) {
@@ -3802,6 +3852,7 @@
       container.style.display = val === 'specific_members' ? 'block' : 'none';
     }
     updateAssignPolicyNoticeText(val);
+    syncAssignPolicyCards(val);
   }
 
   function handleSaveAssignmentPolicy(e) {
@@ -9239,8 +9290,12 @@
     openMemberDonutModal,
     openSetPhotoModal,
     openAssignmentPolicyModal,
+    selectAssignPolicyCard,
+    syncAssignPolicyCards,
     toggleAssignPolicyMemberList,
     handleSaveAssignmentPolicy,
+    selectRankingsVisCard,
+    syncRankingsVisCards,
     handleProfilePhotoSelected,
     selectPresetAvatar,
     resetAvatarToInitials,

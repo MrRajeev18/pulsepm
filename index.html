@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=4.0">
+  <link rel="stylesheet" href="styles.css?v=4.1">
 </head>
 <body>
   <div id="app" class="app-root">
@@ -1526,44 +1526,154 @@
 
     <!-- MODAL: CHANGE WHO CAN ASSIGN TASKS (Assignment Policy) -->
     <div id="modal-assignment-policy" class="modal-backdrop">
-      <div class="modal-dialog">
+      <div class="modal-dialog modal-permission-dialog">
         <div class="modal-header">
-          <div>
-            <h3>Task Assignment Permission</h3>
-            <p class="modal-subtitle">Configure who has authority to assign deliverables in this project.</p>
+          <div class="modal-header-with-icon">
+            <div class="modal-title-icon-badge" style="background: linear-gradient(135deg, rgba(79, 70, 229, 0.12) 0%, rgba(139, 92, 246, 0.14) 100%); border-color: rgba(79, 70, 229, 0.25); color: var(--primary);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <circle cx="12" cy="12" r="6"></circle>
+                <circle cx="12" cy="12" r="2"></circle>
+              </svg>
+            </div>
+            <div class="modal-title-group">
+              <div class="modal-title-row">
+                <h3 class="modal-title">Task Assignment Permission</h3>
+                <span class="badge-creator-tag" style="font-size: 0.72rem; padding: 2px 8px;">👑 Admin Control</span>
+              </div>
+              <p class="modal-subtitle">Configure who has authority to allocate and assign deliverables in this project.</p>
+            </div>
           </div>
-          <button class="modal-close-btn" onclick="window.App.closeModal('modal-assignment-policy');">✕</button>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-assignment-policy');" title="Close">✕</button>
         </div>
         <form id="form-assignment-policy" onsubmit="window.App.handleSaveAssignmentPolicy(event);">
           <div class="modal-body">
             <input type="hidden" id="assign-policy-project-id">
 
-            <div class="form-group">
-              <label for="assign-policy-select">Who can assign tasks? (Task Allocation) <span class="required">*</span></label>
-              <select id="assign-policy-select" class="form-control" onchange="window.App.toggleAssignPolicyMemberList(this.value);" required>
-                <option value="admin_only">1. Only Admin (Only creator of the project can assign)</option>
-                <option value="admin_and_self">2. Admin + Themself (Creator can assign to all & members can assign to themself)</option>
-                <option value="specific_members">3. Selected member (Admin and Selected members can assign)</option>
-                <option value="anyone">4. Everyone (Everyone can assign task to each other)</option>
-              </select>
+            <!-- Hidden native select maintained for 100% programmatic & test compatibility -->
+            <select id="assign-policy-select" style="display: none;" onchange="window.App.toggleAssignPolicyMemberList(this.value);" required>
+              <option value="admin_only">1. Only Admin (Only creator of the project can assign)</option>
+              <option value="admin_and_self">2. Admin + Themself (Creator can assign to all & members can assign to themself)</option>
+              <option value="specific_members">3. Selected member (Admin and Selected members can assign)</option>
+              <option value="anyone">4. Everyone (Everyone can assign task to each other)</option>
+            </select>
+
+            <div class="policy-section-label">
+              <span class="policy-section-label-text">Select Allocation Rule</span>
+              <span class="policy-badge-count">4 Options Available</span>
             </div>
 
-            <div id="assign-policy-members-container" class="form-group" style="display: none;">
-              <label>Select Specific Team Members Authorized to Assign Tasks</label>
-              <p class="field-hint" style="margin-bottom: 8px;">Check the specific colleagues authorized to assign deliverables:</p>
+            <!-- INTERACTIVE POLICY CARDS STACK -->
+            <div class="policy-cards-stack" id="assign-policy-cards-grid" role="radiogroup" aria-label="Task Assignment Permission Policy">
+              
+              <!-- Card 1: admin_only -->
+              <div class="policy-card-option" data-policy="admin_only" onclick="window.App.selectAssignPolicyCard('admin_only');" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); window.App.selectAssignPolicyCard('admin_only');}" role="radio" aria-checked="false" tabindex="0">
+                <div class="policy-card-icon-wrap admin-only">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                  </svg>
+                </div>
+                <div class="policy-card-info">
+                  <div class="policy-card-title-row">
+                    <span class="policy-card-name">1. Only Admin</span>
+                    <span class="policy-pill strict">Strict</span>
+                  </div>
+                  <p class="policy-card-desc">Only the project creator / owner can assign tasks. Members cannot self-assign or assign to others.</p>
+                </div>
+                <div class="policy-card-radio">
+                  <div class="policy-radio-circle"></div>
+                </div>
+              </div>
+
+              <!-- Card 2: admin_and_self -->
+              <div class="policy-card-option" data-policy="admin_and_self" onclick="window.App.selectAssignPolicyCard('admin_and_self');" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); window.App.selectAssignPolicyCard('admin_and_self');}" role="radio" aria-checked="false" tabindex="0">
+                <div class="policy-card-icon-wrap admin-self">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <polyline points="16 11 18 13 22 9"></polyline>
+                  </svg>
+                </div>
+                <div class="policy-card-info">
+                  <div class="policy-card-title-row">
+                    <span class="policy-card-name">2. Admin + Themself</span>
+                    <span class="policy-pill controlled">Controlled</span>
+                  </div>
+                  <p class="policy-card-desc">Creator can assign to all members, and team members can allocate tasks to themselves.</p>
+                </div>
+                <div class="policy-card-radio">
+                  <div class="policy-radio-circle"></div>
+                </div>
+              </div>
+
+              <!-- Card 3: specific_members -->
+              <div class="policy-card-option" data-policy="specific_members" onclick="window.App.selectAssignPolicyCard('specific_members');" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); window.App.selectAssignPolicyCard('specific_members');}" role="radio" aria-checked="false" tabindex="0">
+                <div class="policy-card-icon-wrap specific-members">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                  </svg>
+                </div>
+                <div class="policy-card-info">
+                  <div class="policy-card-title-row">
+                    <span class="policy-card-name">3. Selected member</span>
+                    <span class="policy-pill delegated">Delegated</span>
+                  </div>
+                  <p class="policy-card-desc">Admin and chosen designated team members are authorized to assign deliverables.</p>
+                </div>
+                <div class="policy-card-radio">
+                  <div class="policy-radio-circle"></div>
+                </div>
+              </div>
+
+              <!-- Card 4: anyone -->
+              <div class="policy-card-option" data-policy="anyone" onclick="window.App.selectAssignPolicyCard('anyone');" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); window.App.selectAssignPolicyCard('anyone');}" role="radio" aria-checked="false" tabindex="0">
+                <div class="policy-card-icon-wrap anyone">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                  </svg>
+                </div>
+                <div class="policy-card-info">
+                  <div class="policy-card-title-row">
+                    <span class="policy-card-name">4. Everyone</span>
+                    <span class="policy-pill open">Open Access</span>
+                  </div>
+                  <p class="policy-card-desc">Open team collaboration — everyone can assign deliverables to any team colleague.</p>
+                </div>
+                <div class="policy-card-radio">
+                  <div class="policy-radio-circle"></div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Dynamic Member Checklist for Specific Members -->
+            <div id="assign-policy-members-container" class="assign-policy-members-box" style="display: none;">
+              <label class="box-label">⭐ Select Specific Team Members</label>
+              <p class="field-hint">Check the specific colleagues authorized to assign deliverables:</p>
               <div id="assign-policy-members-checklist" class="special-assigners-select-list">
                 <!-- Dynamically populated by JS with project.members -->
               </div>
             </div>
 
-            <div id="assign-policy-notice-box" class="notice-box info" style="margin-top: 14px; padding: 12px; background: var(--bg-subtle); border-radius: 8px; border-left: 3px solid var(--primary); font-size: 0.82rem; line-height: 1.45;">
-              <span style="font-size: 1.05rem; margin-right: 4px;">💡</span>
-              <span id="assign-policy-notice-text"><strong>Option Policy:</strong> Choose who can assign deliverables.</span>
+            <!-- Dynamic Explanatory Notice Callout -->
+            <div id="assign-policy-notice-box" class="modern-policy-notice">
+              <div class="notice-icon-pill">💡</div>
+              <div id="assign-policy-notice-text"><strong>Option Policy:</strong> Choose who can assign deliverables.</div>
             </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-ghost" onclick="window.App.closeModal('modal-assignment-policy');">Cancel</button>
-            <button type="submit" class="btn btn-primary" id="btn-save-assign-policy">Save Assignment Permission</button>
+            <button type="submit" class="btn btn-primary btn-save-policy" id="btn-save-assign-policy">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Save Assignment Permission</span>
+            </button>
           </div>
         </form>
       </div>
@@ -1571,43 +1681,130 @@
 
     <!-- MODAL: TEAM MEMBER RANKINGS VISIBILITY (Admin, Everyone, Selected Member) -->
     <div id="modal-rankings-visibility" class="modal-backdrop">
-      <div class="modal-dialog">
+      <div class="modal-dialog modal-permission-dialog">
         <div class="modal-header">
-          <div>
-            <h3>Team Member Rankings Visibility</h3>
-            <p class="modal-subtitle">Choose who has permission to view performance rankings and the leaderboard in this project.</p>
+          <div class="modal-header-with-icon">
+            <div class="modal-title-icon-badge" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.14) 0%, rgba(217, 119, 6, 0.18) 100%); border-color: rgba(245, 158, 11, 0.25); color: #d97706;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+            </div>
+            <div class="modal-title-group">
+              <div class="modal-title-row">
+                <h3 class="modal-title">Team Member Rankings Visibility</h3>
+                <span class="badge-creator-tag" style="font-size: 0.72rem; padding: 2px 8px; background: rgba(245, 158, 11, 0.1); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.25);">🏆 Leaderboard</span>
+              </div>
+              <p class="modal-subtitle">Choose who has permission to view performance rankings and member stats.</p>
+            </div>
           </div>
-          <button class="modal-close-btn" onclick="window.App.closeModal('modal-rankings-visibility');">✕</button>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-rankings-visibility');" title="Close">✕</button>
         </div>
         <form id="form-rankings-visibility" onsubmit="window.App.handleSaveRankingsVisibility(event)">
           <div class="modal-body">
             <input type="hidden" id="rankings-vis-project-id">
 
-            <div class="form-group">
-              <label for="rankings-vis-policy-select">Who can see "Team Member Rankings"? <span class="required">*</span></label>
-              <select id="rankings-vis-policy-select" onchange="window.App.toggleRankingsVisMemberList(this.value)" required>
-                <option value="everyone">Everyone (All project members)</option>
-                <option value="admin">Admin (Project Owner & Admins only)</option>
-                <option value="selected">Selected member (Admins + chosen members)</option>
-              </select>
+            <!-- Hidden native select for full programmatic compatibility -->
+            <select id="rankings-vis-policy-select" style="display: none;" onchange="window.App.toggleRankingsVisMemberList(this.value)" required>
+              <option value="everyone">Everyone (All project members)</option>
+              <option value="admin">Admin (Project Owner & Admins only)</option>
+              <option value="selected">Selected member (Admins + chosen members)</option>
+            </select>
+
+            <div class="policy-section-label">
+              <span class="policy-section-label-text">Select Visibility Rule</span>
+              <span class="policy-badge-count">3 Options Available</span>
             </div>
 
-            <div id="rankings-vis-members-container" class="form-group" style="display: none;">
-              <label>Select Specific Team Members Who Can View Rankings</label>
-              <p class="field-hint" style="margin-bottom: 8px;">Check the specific colleagues authorized to view the leaderboard:</p>
+            <!-- INTERACTIVE RANKINGS POLICY CARDS STACK -->
+            <div class="policy-cards-stack" id="rankings-vis-cards-grid" role="radiogroup" aria-label="Rankings Visibility Policy">
+              
+              <!-- Card 1: everyone -->
+              <div class="policy-card-option" data-policy="everyone" onclick="window.App.selectRankingsVisCard('everyone');" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); window.App.selectRankingsVisCard('everyone');}" role="radio" aria-checked="false" tabindex="0">
+                <div class="policy-card-icon-wrap anyone">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                  </svg>
+                </div>
+                <div class="policy-card-info">
+                  <div class="policy-card-title-row">
+                    <span class="policy-card-name">Everyone</span>
+                    <span class="policy-pill open">Open</span>
+                  </div>
+                  <p class="policy-card-desc">Public leaderboard — all project members can view rankings, scores, and activity stats.</p>
+                </div>
+                <div class="policy-card-radio">
+                  <div class="policy-radio-circle"></div>
+                </div>
+              </div>
+
+              <!-- Card 2: admin -->
+              <div class="policy-card-option" data-policy="admin" onclick="window.App.selectRankingsVisCard('admin');" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); window.App.selectRankingsVisCard('admin');}" role="radio" aria-checked="false" tabindex="0">
+                <div class="policy-card-icon-wrap admin-only">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </div>
+                <div class="policy-card-info">
+                  <div class="policy-card-title-row">
+                    <span class="policy-card-name">Admin Only</span>
+                    <span class="policy-pill restricted">Restricted</span>
+                  </div>
+                  <p class="policy-card-desc">Confidential rankings — only the project creator, owner, and designated admins can view.</p>
+                </div>
+                <div class="policy-card-radio">
+                  <div class="policy-radio-circle"></div>
+                </div>
+              </div>
+
+              <!-- Card 3: selected -->
+              <div class="policy-card-option" data-policy="selected" onclick="window.App.selectRankingsVisCard('selected');" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); window.App.selectRankingsVisCard('selected');}" role="radio" aria-checked="false" tabindex="0">
+                <div class="policy-card-icon-wrap specific-members">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                  </svg>
+                </div>
+                <div class="policy-card-info">
+                  <div class="policy-card-title-row">
+                    <span class="policy-card-name">Selected member</span>
+                    <span class="policy-pill delegated">Custom</span>
+                  </div>
+                  <p class="policy-card-desc">Custom access — admins plus selected team members are granted permission to view.</p>
+                </div>
+                <div class="policy-card-radio">
+                  <div class="policy-radio-circle"></div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Dynamic Member Checklist for Specific Viewers -->
+            <div id="rankings-vis-members-container" class="assign-policy-members-box" style="display: none;">
+              <label class="box-label">👁️ Select Specific Team Members Who Can View Rankings</label>
+              <p class="field-hint">Check the specific colleagues authorized to view the leaderboard:</p>
               <div id="rankings-vis-members-checklist" class="special-assigners-select-list">
                 <!-- Dynamically populated by JS with project.members -->
               </div>
             </div>
 
-            <div class="notice-box info" style="margin-top: 14px; padding: 12px; background: var(--bg-subtle); border-radius: 8px; border-left: 3px solid var(--primary); font-size: 0.82rem; line-height: 1.45;">
-              <span style="font-size: 1.05rem; margin-right: 4px;">💡</span>
-              <span><strong>Admin Access Guarantee:</strong> Project Creator, Owner, and designated Admins can always view and manage the rankings regardless of the chosen setting.</span>
+            <div class="modern-policy-notice">
+              <div class="notice-icon-pill">🛡️</div>
+              <div><strong>Admin Access Guarantee:</strong> Project Creator, Owner, and designated Admins always retain full visibility into rankings regardless of the chosen policy.</div>
             </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-ghost" onclick="window.App.closeModal('modal-rankings-visibility');">Cancel</button>
-            <button type="submit" class="btn btn-primary">Save Visibility Settings</button>
+            <button type="submit" class="btn btn-primary btn-save-policy">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Save Visibility Settings</span>
+            </button>
           </div>
         </form>
       </div>
@@ -2100,6 +2297,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="app.js?v=4.2"></script>
+  <script src="app.js?v=4.3"></script>
 </body>
 </html>
