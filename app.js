@@ -6439,12 +6439,14 @@
               <div class="team-card-name-row">
                 <strong class="team-card-name">${escapeHtml(memberName)}</strong>
                 ${isCurrentUser ? '<span class="team-you-badge">You</span>' : ''}
+              </div>
+              <span class="team-card-email">${escapeHtml(memberEmail)}</span>
+              <div class="team-card-presence-row">
                 <span class="presence-pill ${presence.status}" title="${escapeHtml(presence.tooltip)}">
                   <span class="presence-pill-dot"></span>
                   <span>${presence.label}</span>
                 </span>
               </div>
-              <span class="team-card-email">${escapeHtml(memberEmail)}</span>
             </div>
           </div>
 

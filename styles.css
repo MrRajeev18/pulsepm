@@ -5114,7 +5114,6 @@ body.dark .team-member-card.team-member-card-invited {
 .team-card-name-row {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -5144,6 +5143,12 @@ body.dark .team-member-card.team-member-card-invited {
   overflow: hidden;
   text-overflow: ellipsis;
   margin-top: 2px;
+}
+
+.team-card-presence-row {
+  display: flex;
+  align-items: center;
+  margin-top: 5px;
 }
 
 .team-card-badges {
