@@ -1941,6 +1941,26 @@
     return false;
   }
 
+  function canUserAssignSelf(project, user) {
+    if (!project || !user) return false;
+    // Project Admin, Owner, or Creator can always assign deliverables
+    if (isProjectAdmin(project, user) || isProjectOwner(project, user) || isProjectCreator(project, user)) {
+      return true;
+    }
+
+    const policy = project.taskAssignmentPolicy || 'anyone';
+
+    // Option 1: 'admin_only' -> Only creator of the project can assign (regular members cannot assign even to themselves)
+    if (policy === 'admin_only') {
+      return false;
+    }
+
+    // Option 2: 'admin_and_self' (and legacy 'creator_admin') -> all members can assign to themselves
+    // Option 3: 'specific_members' -> all members can assign to themselves
+    // Option 4: 'anyone' -> everyone can assign to each other and themselves
+    return true;
+  }
+
   function canUserAssignOthers(project, user) {
     if (!project || !user) return true;
     const policy = project.taskAssignmentPolicy || 'anyone';
@@ -1949,10 +1969,13 @@
     const isAdmin = isProjectAdmin(project, user) || isProjectOwner(project, user) || isProjectCreator(project, user);
     if (isAdmin) return true;
 
-    if (policy === 'creator_admin') {
+    // Option 1: Only Admin -> non-admins cannot assign to others
+    // Option 2: Admin + Themself -> non-admins cannot assign to others
+    if (policy === 'admin_only' || policy === 'admin_and_self' || policy === 'creator_admin') {
       return false;
     }
 
+    // Option 3: Selected Members -> selected members can assign to others
     if (policy === 'specific_members') {
       const currentUid = user.id || user.uid;
       const memberObj = getProjectMemberForUser(project, user);
@@ -1975,20 +1998,24 @@
       return true;
     }
 
-    // 2. The Creator of this specific task is ALWAYS allowed to reassign
+    const policy = project.taskAssignmentPolicy || 'anyone';
+
+    // Option 1 'admin_only': ONLY creator/admin of the project can assign or reassign
+    if (policy === 'admin_only') {
+      return false;
+    }
+
+    // 2. The Creator of this specific task is ALWAYS allowed to reassign (under Admin + Themself, Selected Member, or Everyone)
     if (isTaskCreator(task, user)) {
       return true;
     }
 
-    // 3. Check Project Task Assignment Policy
-    const policy = project.taskAssignmentPolicy || 'anyone';
-
-    // Everyone is allowed policy
+    // 3. Option 4: Everyone is allowed policy
     if (policy === 'anyone') {
       return true;
     }
 
-    // Other assign permission (Selected Members / specific_members)
+    // 4. Option 3: Selected Members (specific_members)
     if (policy === 'specific_members') {
       const currentUid = user.id || user.uid;
       const memberObj = getProjectMemberForUser(project, user);
@@ -2003,7 +2030,7 @@
       }
     }
 
-    // Under 'creator_admin' (or not in specific_members), reassignment is restricted to Admin & Creator
+    // Under Option 2 'admin_and_self' (or legacy 'creator_admin'), reassignment of other people's tasks is restricted
     return false;
   }
 
@@ -2432,10 +2459,13 @@
     const policyBadge = document.getElementById('detail-assignment-policy-badge');
     if (policyBadge) {
       const isOwnerOrAdmin = isProjectAdmin(project, state.currentUser) || isProjectOwner(project, state.currentUser);
-      let label = 'who can Assign: Anyone';
+      let label = 'who can Assign: Everyone';
       let cls = 'badge badge-success';
-      if (project.taskAssignmentPolicy === 'creator_admin') {
-        label = 'who can Assign: Admin';
+      if (project.taskAssignmentPolicy === 'admin_only') {
+        label = 'who can Assign: Only Admin';
+        cls = 'badge badge-policy';
+      } else if (project.taskAssignmentPolicy === 'admin_and_self' || project.taskAssignmentPolicy === 'creator_admin') {
+        label = 'who can Assign: Admin + Themself';
         cls = 'badge badge-policy';
       } else if (project.taskAssignmentPolicy === 'specific_members') {
         label = 'who can Assign: Selected Member';
@@ -3589,7 +3619,23 @@
       container.style.display = select.value === 'specific_members' ? 'block' : 'none';
     }
 
+    updateAssignPolicyNoticeText(select.value);
+
     openModal('modal-assignment-policy');
+  }
+
+  function updateAssignPolicyNoticeText(val) {
+    const textEl = document.getElementById('assign-policy-notice-text');
+    if (!textEl) return;
+    if (val === 'admin_only') {
+      textEl.innerHTML = '<strong>1. Only Admin:</strong> Only the creator of the project can assign tasks. Other members cannot assign tasks to colleagues or themselves.';
+    } else if (val === 'admin_and_self' || val === 'creator_admin') {
+      textEl.innerHTML = '<strong>2. Admin + Themself:</strong> The project creator can assign to all members, and all members can assign tasks to themselves.';
+    } else if (val === 'specific_members') {
+      textEl.innerHTML = '<strong>3. Selected member:</strong> The project creator and selected team members can assign tasks to anyone on the team.';
+    } else {
+      textEl.innerHTML = '<strong>4. Everyone:</strong> Everyone can assign tasks to each other freely across the team.';
+    }
   }
 
   function toggleAssignPolicyMemberList(val) {
@@ -3597,6 +3643,7 @@
     if (container) {
       container.style.display = val === 'specific_members' ? 'block' : 'none';
     }
+    updateAssignPolicyNoticeText(val);
   }
 
   function handleSaveAssignmentPolicy(e) {
@@ -6456,13 +6503,14 @@
   }
 
   function formatPolicyName(policy) {
-    if (policy === 'creator_admin') return 'Admin';
+    if (policy === 'admin_only') return 'Only Admin';
+    if (policy === 'admin_and_self' || policy === 'creator_admin') return 'Admin + Themself';
     if (policy === 'specific_members') return 'Selected Member';
-    return 'Anyone';
+    return 'Everyone';
   }
 
   // =========================================================
-  // 11. CREATE TASK & ASSIGNMENT WORKFLOW (3 Permission Levels)
+  // 11. CREATE TASK & ASSIGNMENT WORKFLOW (4 Permission Levels)
   // =========================================================
   function openCreateTaskModal() {
     const project = state.projects.find(p => p.id === state.activeProjectId);
@@ -6477,14 +6525,23 @@
     const selfId = selfMember.id || state.currentUser.id;
     const selfName = selfMember.name || state.currentUser.name;
     const canAssignOthers = canUserAssignOthers(project, state.currentUser);
+    const canAssignSelf = canUserAssignSelf(project, state.currentUser);
+
+    // Option 1: Only Admin - if user cannot assign even to themselves (non-admin)
+    if (!canAssignOthers && !canAssignSelf) {
+      showToast('🔒 Task allocation is set to "Only Admin". Only the creator of the project can assign tasks.', 'warning');
+      return;
+    }
 
     let policyText = '';
-    if (project.taskAssignmentPolicy === 'creator_admin') {
-      policyText = 'Admin Policy (Only creator & admin can assign to others)';
+    if (project.taskAssignmentPolicy === 'admin_only') {
+      policyText = 'Only Admin: Only creator of the project can assign';
+    } else if (project.taskAssignmentPolicy === 'admin_and_self' || project.taskAssignmentPolicy === 'creator_admin') {
+      policyText = 'Admin + Themself: Creator can assign to all & members can assign to themself';
     } else if (project.taskAssignmentPolicy === 'specific_members') {
-      policyText = 'Selected Member Policy (Only selected members can assign to others)';
+      policyText = 'Selected Member: Admin and selected members can assign';
     } else {
-      policyText = 'Anyone Policy (Everyone can assign tasks)';
+      policyText = 'Everyone: Everyone can assign task to each other';
     }
 
     const banner = document.getElementById('task-assign-policy-banner');
@@ -6523,7 +6580,7 @@
         if (hint) hint.innerText = 'Assign this deliverable to yourself or select a team member.';
       } else {
         select.disabled = true;
-        if (hint) hint.innerText = '🔒 Policy restricted: Only Project Admins can assign deliverables to other colleagues. This task will be assigned to you.';
+        if (hint) hint.innerText = '🔒 Policy restricted: You can assign this deliverable to yourself. Only project admins or authorized assigners can assign to colleagues.';
       }
       select.innerHTML = optionsHtml;
     }
@@ -6567,6 +6624,13 @@
     const selfMember = getProjectMemberForUser(project, state.currentUser) || state.currentUser;
     const selfId = selfMember.id || state.currentUser.id;
     const canAssignOthers = canUserAssignOthers(project, state.currentUser);
+    const canAssignSelf = canUserAssignSelf(project, state.currentUser);
+
+    // Block if neither canAssignOthers nor canAssignSelf (Option 1: Only Admin for non-admins)
+    if (!canAssignOthers && !canAssignSelf) {
+      showToast('🔒 Task allocation is set to "Only Admin". Only the creator of the project can assign tasks.', 'error');
+      return;
+    }
 
     let targetAssigneeId = assigneeSelect ? assigneeSelect.value : selfId;
     if (!canAssignOthers || !targetAssigneeId) {
@@ -8161,6 +8225,7 @@
     assignTaskToMyself,
     reassignTask,
     canUserAssignOthers,
+    canUserAssignSelf,
     getProjectMemberForUser,
     isTaskAssignedToUser,
     handleAddEmailMember,

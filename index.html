@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=3.5">
+  <link rel="stylesheet" href="styles.css?v=3.6">
 </head>
 <body>
   <div id="app" class="app-root">
@@ -757,15 +757,16 @@
               </div>
             </div>
 
-            <!-- TASK ASSIGNMENT PERMISSION SETTING (3 LEVELS) -->
+            <!-- TASK ASSIGNMENT / ALLOCATION PERMISSION SETTING (4 OPTIONS) -->
             <div class="form-group">
-              <label for="project-assign-permission-select">Task Assignment Permission <span class="required">*</span></label>
+              <label for="project-assign-permission-select">Task Allocation Permission <span class="required">*</span></label>
               <select id="project-assign-permission-select" onchange="window.App.toggleSpecialAssignerField(this.value)" required>
-                <option value="anyone">Anyone</option>
-                <option value="creator_admin">Admin</option>
-                <option value="specific_members">Selected Member</option>
+                <option value="admin_only">1. Only Admin (Only creator of the project can assign)</option>
+                <option value="admin_and_self">2. Admin + Themself (Creator can assign to all & members can assign to themself)</option>
+                <option value="specific_members">3. Selected member (Admin and Selected members can assign)</option>
+                <option value="anyone" selected>4. Everyone (Everyone can assign task to each other)</option>
               </select>
-              <small class="field-hint">💡 Note: Every member can always add their own tasks to the project.</small>
+              <small class="field-hint">💡 Control who is authorized to allocate and assign deliverables in this project.</small>
             </div>
 
             <div id="special-assigners-container" class="form-group" style="display: none;">
@@ -1343,11 +1344,12 @@
             </div>
 
             <div class="form-group">
-              <label for="edit-project-assign-policy">Who can assign tasks? <span class="required">*</span></label>
+              <label for="edit-project-assign-policy">Who can assign tasks? (Task Allocation) <span class="required">*</span></label>
               <select id="edit-project-assign-policy" class="form-control" onchange="window.App.toggleEditProjectAssignPolicy(this.value);" required>
-                <option value="creator_admin">Admin (Project Owner & Lead only)</option>
-                <option value="specific_members">Selected Member (Owner + appointed assigners)</option>
-                <option value="anyone">Anyone (All team members can assign)</option>
+                <option value="admin_only">1. Only Admin (Only creator of the project can assign)</option>
+                <option value="admin_and_self">2. Admin + Themself (Creator can assign to all & members can assign to themself)</option>
+                <option value="specific_members">3. Selected member (Admin and Selected members can assign)</option>
+                <option value="anyone">4. Everyone (Everyone can assign task to each other)</option>
               </select>
             </div>
 
@@ -1399,11 +1401,12 @@
             <input type="hidden" id="assign-policy-project-id">
 
             <div class="form-group">
-              <label for="assign-policy-select">Who can assign tasks? <span class="required">*</span></label>
+              <label for="assign-policy-select">Who can assign tasks? (Task Allocation) <span class="required">*</span></label>
               <select id="assign-policy-select" class="form-control" onchange="window.App.toggleAssignPolicyMemberList(this.value);" required>
-                <option value="creator_admin">Admin (Project Owner & Lead only)</option>
-                <option value="specific_members">Selected Member (Owner + appointed assigners)</option>
-                <option value="anyone">Anyone (All team members can assign)</option>
+                <option value="admin_only">1. Only Admin (Only creator of the project can assign)</option>
+                <option value="admin_and_self">2. Admin + Themself (Creator can assign to all & members can assign to themself)</option>
+                <option value="specific_members">3. Selected member (Admin and Selected members can assign)</option>
+                <option value="anyone">4. Everyone (Everyone can assign task to each other)</option>
               </select>
             </div>
 
@@ -1415,9 +1418,9 @@
               </div>
             </div>
 
-            <div class="notice-box info" style="margin-top: 14px; padding: 12px; background: var(--bg-subtle); border-radius: 8px; border-left: 3px solid var(--primary); font-size: 0.82rem; line-height: 1.45;">
+            <div id="assign-policy-notice-box" class="notice-box info" style="margin-top: 14px; padding: 12px; background: var(--bg-subtle); border-radius: 8px; border-left: 3px solid var(--primary); font-size: 0.82rem; line-height: 1.45;">
               <span style="font-size: 1.05rem; margin-right: 4px;">💡</span>
-              <span><strong>Self-Assignment Note:</strong> Team members can always assign tasks to themselves even if assignment is restricted to Admin or Selected Members.</span>
+              <span id="assign-policy-notice-text"><strong>Option Policy:</strong> Choose who can assign deliverables.</span>
             </div>
           </div>
           <div class="modal-footer">
@@ -1956,6 +1959,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="app.js?v=3.5"></script>
+  <script src="app.js?v=3.6"></script>
 </body>
 </html>
