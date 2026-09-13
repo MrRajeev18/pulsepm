@@ -7530,7 +7530,7 @@
     let html = '';
     actualCollaborators.forEach(collab => {
       const isAlreadyMember = (project.members || []).some(m => m.email && collab.email && m.email.trim().toLowerCase() === collab.email.trim().toLowerCase());
-      const isPendingInvite = (project.pendingInvitations || []).some(inv =>
+      const pendingInv = (project.pendingInvitations || []).find(inv =>
         (inv.status === 'pending' || !inv.status) &&
         ((inv.inviteeEmail && collab.email && inv.inviteeEmail.trim().toLowerCase() === collab.email.trim().toLowerCase()) ||
          (inv.inviteeId && collab.id && inv.inviteeId === collab.id))
@@ -7539,8 +7539,18 @@
       let actionHtml = '';
       if (isAlreadyMember) {
         actionHtml = `<span class="badge badge-success" style="font-size: 0.75rem;">Already Added</span>`;
-      } else if (isPendingInvite) {
-        actionHtml = `<span class="badge badge-requested" title="Invitation request sent, waiting for collaborator acceptance">Requested</span>`;
+      } else if (pendingInv) {
+        actionHtml = `
+          <div style="display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+            <span class="badge badge-requested" title="Invitation request sent, waiting for collaborator acceptance">Requested</span>
+            <button type="button" class="btn-withdraw-invite"
+                    onclick="event.stopPropagation(); window.App.cancelProjectInvitation('${project.id}', '${pendingInv.id}')"
+                    title="Withdraw invitation request sent to ${escapeHtml(collab.name)}">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <span>Withdraw</span>
+            </button>
+          </div>
+        `;
       } else {
         actionHtml = `<button class="btn btn-secondary btn-xs" onclick="window.App.addPastCollaborator('${collab.id}')">+ Add to Project</button>`;
       }
@@ -8167,7 +8177,40 @@
     saveState();
     syncProjectToFirestore(project);
     renderProjectTeam(project);
-    showToast('Invitation cancelled.', 'info');
+    renderPastCollaboratorsList(project);
+    showToast('Invitation request withdrawn.', 'info');
+  }
+
+  function withdrawJoinRequest(projectId, requestId = null) {
+    const project = state.projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    const currentUserId = state.currentUser ? (state.currentUser.id || state.currentUser.uid) : '';
+    const currentEmail = (getCurrentUserEmail() || '').toLowerCase();
+
+    if (!project.joinRequests) return;
+    const reqIndex = project.joinRequests.findIndex(r =>
+      (requestId && r.id === requestId) ||
+      (currentUserId && r.userId === currentUserId) ||
+      (currentEmail && r.userEmail && r.userEmail.toLowerCase() === currentEmail)
+    );
+    if (reqIndex === -1) return;
+
+    project.joinRequests.splice(reqIndex, 1);
+
+    if (!project.activity) project.activity = [];
+    project.activity.unshift({
+      id: 'act-' + Date.now(),
+      text: `${state.currentUser ? state.currentUser.name : 'Applicant'} withdrew their request to join the project`,
+      time: 'Just now',
+      icon: 'member'
+    });
+
+    saveState();
+    syncProjectToFirestore(project);
+    renderProjectTeam(project);
+    renderProjectGroups();
+    showToast(`Join request for "${project.name}" has been withdrawn.`, 'info');
   }
 
   function getMyPendingProjectInvitations() {
@@ -8870,6 +8913,7 @@
     acceptProjectInvitation,
     declineProjectInvitation,
     cancelProjectInvitation,
+    withdrawJoinRequest,
     getMyPendingProjectInvitations,
     renderDashboardInvitationsBanner,
     renderProjectApprovalSections,

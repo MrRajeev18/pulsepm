@@ -2824,6 +2824,39 @@ body.dark .badge-requested {
   border-color: rgba(245, 158, 11, 0.45);
 }
 
+.btn-withdraw-invite {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--danger, #ef4444);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-full, 999px);
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-withdraw-invite:hover {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #dc2626;
+  transform: translateY(-1px);
+}
+
+body.dark .btn-withdraw-invite {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #f87171;
+}
+
+body.dark .btn-withdraw-invite:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+}
+
 .linked-identities-box {
   background: var(--bg-subtle);
   border-radius: var(--radius-md);
