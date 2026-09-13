@@ -1998,6 +1998,35 @@
     return false;
   }
 
+  function canUserInviteMembers(project, user) {
+    if (!project || !user) return true;
+    const policy = project.memberInvitationPolicy || 'anyone';
+    if (policy === 'anyone') return true;
+
+    const isAdmin = isProjectAdmin(project, user) || isProjectOwner(project, user) || isProjectCreator(project, user);
+    if (isAdmin) return true;
+
+    // Option 1: Only Admin -> non-admins cannot invite
+    // Option 2: Admin + Themself -> non-admins cannot invite others
+    if (policy === 'admin_only' || policy === 'admin_and_self' || policy === 'creator_admin') {
+      return false;
+    }
+
+    // Option 3: Selected member -> designated special inviters can invite
+    if (policy === 'specific_members') {
+      const currentUid = user.id || user.uid;
+      const memberObj = getProjectMemberForUser(project, user);
+      const memberId = memberObj ? memberObj.id : currentUid;
+
+      return Boolean(
+        (project.specialInviters && memberId && project.specialInviters.includes(memberId)) ||
+        (project.specialInviters && currentUid && project.specialInviters.includes(currentUid))
+      );
+    }
+
+    return false;
+  }
+
   function canUserReassignTask(project, task, user) {
     if (!project || !task || !user) return false;
 
@@ -2485,6 +2514,29 @@
       memberExitCard.style.display = (!isOwner) ? 'block' : 'none';
     }
 
+    // Toggle invite buttons visibility based on invitation permissions
+    const canInvite = canUserInviteMembers(project, state.currentUser);
+    const headerInviteBtn = document.getElementById('detail-header-invite-btn');
+    if (headerInviteBtn) {
+      headerInviteBtn.style.display = canInvite ? 'inline-flex' : 'none';
+    }
+    const overviewInviteBtn = document.getElementById('overview-invite-btn');
+    if (overviewInviteBtn) {
+      overviewInviteBtn.style.display = canInvite ? 'inline-flex' : 'none';
+    }
+    const overviewShareCodeBtn = document.getElementById('overview-share-code-btn');
+    if (overviewShareCodeBtn) {
+      overviewShareCodeBtn.style.display = canInvite ? 'block' : 'none';
+    }
+    const teamAddMemberBtn = document.getElementById('team-add-member-btn');
+    if (teamAddMemberBtn) {
+      teamAddMemberBtn.style.display = canInvite ? 'inline-flex' : 'none';
+    }
+    const chatInviteBtn = document.getElementById('chat-invite-btn');
+    if (chatInviteBtn) {
+      chatInviteBtn.style.display = canInvite ? 'inline-flex' : 'none';
+    }
+
     // Overview Tab
     renderProjectOverview(project);
 
@@ -2549,6 +2601,38 @@
       policyBadge.className = cls;
     }
 
+    // Member Invitation Policy Badge
+    const invitePolicyBadge = document.getElementById('detail-invite-policy-badge');
+    if (invitePolicyBadge) {
+      const isOwnerOrAdmin = isProjectAdmin(project, state.currentUser) || isProjectOwner(project, state.currentUser);
+      let invLabel = 'Who can Invite: Everyone';
+      let invCls = 'badge badge-success';
+      if (project.memberInvitationPolicy === 'admin_only') {
+        invLabel = 'Who can Invite: Only Admin';
+        invCls = 'badge badge-policy';
+      } else if (project.memberInvitationPolicy === 'admin_and_self' || project.memberInvitationPolicy === 'creator_admin') {
+        invLabel = 'Who can Invite: Admin + Themself';
+        invCls = 'badge badge-policy';
+      } else if (project.memberInvitationPolicy === 'specific_members') {
+        invLabel = 'Who can Invite: Selected Member';
+        invCls = 'badge badge-policy';
+      }
+
+      if (isOwnerOrAdmin) {
+        invitePolicyBadge.innerHTML = `${invLabel} <span style="margin-left: 4px; font-size: 0.72rem; opacity: 0.85;">✏️</span>`;
+        invitePolicyBadge.style.cursor = 'pointer';
+        invitePolicyBadge.setAttribute('title', 'Click to change who can invite members in this project');
+        invitePolicyBadge.onclick = () => window.App.openEditProjectDetailModal(project.id);
+      } else {
+        invitePolicyBadge.innerHTML = invLabel;
+        invitePolicyBadge.innerText = invLabel;
+        invitePolicyBadge.style.cursor = 'default';
+        invitePolicyBadge.removeAttribute('title');
+        invitePolicyBadge.onclick = null;
+      }
+      invitePolicyBadge.className = invCls;
+    }
+
     // Team Roster
     const rosterContainer = document.getElementById('project-team-roster');
     if (rosterContainer) {
@@ -2557,21 +2641,37 @@
       project.members.forEach(m => {
         const isMemberCreator = (project.creatorId === m.id) || (m.role === 'Owner');
         const isSpecial = project.specialAssigners && project.specialAssigners.includes(m.id);
+        const isSpecialInviter = project.specialInviters && project.specialInviters.includes(m.id);
 
         let assignerBadge = '';
         if (isMemberCreator) {
-          assignerBadge = `<span class="badge-special-assigner" title="Project Creator has full assignment authority">👑 Creator</span>`;
-        } else if (isSpecial) {
-          assignerBadge = `<span class="badge-special-assigner" title="Designated Special Assigner">⭐ Special Assigner</span>`;
+          assignerBadge = `<span class="badge-special-assigner" title="Project Creator has full authority">👑 Creator</span>`;
+        } else {
+          if (isSpecial) {
+            assignerBadge += `<span class="badge-special-assigner" title="Designated Special Assigner">⭐ Assigner</span> `;
+          }
+          if (isSpecialInviter) {
+            assignerBadge += `<span class="badge-special-assigner" style="background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25);" title="Designated Special Inviter">✉️ Inviter</span>`;
+          }
         }
 
         let creatorActionBtn = '';
         if (isCurrentUserCreator && !isMemberCreator && project.taskAssignmentPolicy === 'specific_members') {
-          creatorActionBtn = `
+          creatorActionBtn += `
             <button class="btn-toggle-assigner ${isSpecial ? 'active' : ''}"
                     onclick="window.App.toggleSpecialAssigner('${project.id}', '${m.id}')"
                     title="${isSpecial ? 'Revoke special assigner privilege' : 'Grant special assigner privilege'}">
               ${isSpecial ? '★ Remove Assigner' : '+ Appoint Assigner'}
+            </button>
+          `;
+        }
+        if (isCurrentUserCreator && !isMemberCreator && project.memberInvitationPolicy === 'specific_members') {
+          creatorActionBtn += `
+            <button class="btn-toggle-assigner ${isSpecialInviter ? 'active' : ''}"
+                    style="${isSpecialInviter ? 'border-color: #10b981; color: #10b981; background: rgba(16, 185, 129, 0.1);' : ''}"
+                    onclick="window.App.toggleSpecialInviter('${project.id}', '${m.id}')"
+                    title="${isSpecialInviter ? 'Revoke special inviter privilege' : 'Grant special inviter privilege'}">
+              ${isSpecialInviter ? '✉️ Remove Inviter' : '+ Appoint Inviter'}
             </button>
           `;
         }
@@ -3766,6 +3866,7 @@
     const startDateInput = document.getElementById('edit-project-start-date');
     const endDateInput = document.getElementById('edit-project-end-date');
     const assignSelect = document.getElementById('edit-project-assign-policy');
+    const inviteSelect = document.getElementById('edit-project-invite-policy');
     const rankingsSelect = document.getElementById('edit-project-rankings-vis-select');
 
     if (!modal || !idInput || !nameInput || !descInput) return;
@@ -3790,6 +3891,12 @@
     if (assignSelect) {
       assignSelect.value = project.taskAssignmentPolicy || 'anyone';
       toggleEditProjectAssignPolicy(assignSelect.value, project);
+    }
+
+    // Invitation policy
+    if (inviteSelect) {
+      inviteSelect.value = project.memberInvitationPolicy || 'anyone';
+      toggleEditProjectInvitePolicy(inviteSelect.value, project);
     }
 
     // Rankings visibility
@@ -3835,6 +3942,48 @@
         html += `
           <label class="assigner-checkbox-item">
             <input type="checkbox" value="${member.id || member.userId}" class="edit-project-assigner-cb" ${isChecked ? 'checked' : ''}>
+            <span><strong>${escapeHtml(member.name || member.email)}</strong> (${escapeHtml(member.role || 'Member')})</span>
+          </label>
+        `;
+      });
+      list.innerHTML = html;
+    }
+  }
+
+  function toggleEditProjectInvitePolicy(val, proj) {
+    const container = document.getElementById('edit-project-special-inviters-container');
+    const list = document.getElementById('edit-project-special-inviters-list');
+    if (!container) return;
+    const isSpecific = val === 'specific_members';
+    container.style.display = isSpecific ? 'block' : 'none';
+
+    if (isSpecific && list) {
+      const currentProject = proj || state.projects.find(p => p.id === state.activeProjectId);
+      if (!currentProject) return;
+
+      const members = (currentProject.members || []).filter(m => {
+        const uid = m.id || m.userId;
+        const creatorId = currentProject.creatorId;
+        const isOwner = (m.role || '').toLowerCase() === 'owner' || (m.role || '').toLowerCase() === 'creator';
+        return uid !== creatorId && !isOwner;
+      });
+
+      if (members.length === 0) {
+        list.innerHTML = `
+          <div style="padding: 10px; font-size: 0.82rem; color: var(--text-muted); text-align: center;">
+            No other non-admin members found in this project. Invite members in the Team tab.
+          </div>
+        `;
+        return;
+      }
+
+      const currentInviters = new Set(currentProject.specialInviters || []);
+      let html = '';
+      members.forEach(member => {
+        const isChecked = currentInviters.has(member.id || member.userId);
+        html += `
+          <label class="assigner-checkbox-item">
+            <input type="checkbox" value="${member.id || member.userId}" class="edit-project-inviter-cb" ${isChecked ? 'checked' : ''}>
             <span><strong>${escapeHtml(member.name || member.email)}</strong> (${escapeHtml(member.role || 'Member')})</span>
           </label>
         `;
@@ -3894,6 +4043,7 @@
     const descInput = document.getElementById('edit-project-desc');
     const endDateInput = document.getElementById('edit-project-end-date');
     const assignSelect = document.getElementById('edit-project-assign-policy');
+    const inviteSelect = document.getElementById('edit-project-invite-policy');
     const rankingsSelect = document.getElementById('edit-project-rankings-vis-select');
 
     if (!idInput || !nameInput || !descInput) return;
@@ -3912,6 +4062,7 @@
     const newDesc = descInput.value.trim();
     const newEndDate = (endDateInput && endDateInput.value) ? endDateInput.value.trim() : (project.deadline || project.endDate || '');
     const newAssignPolicy = assignSelect ? assignSelect.value : (project.taskAssignmentPolicy || 'anyone');
+    const newInvitePolicy = inviteSelect ? inviteSelect.value : (project.memberInvitationPolicy || 'anyone');
     const newRankingsVis = rankingsSelect ? rankingsSelect.value : (project.rankingsVisibility || 'everyone');
 
     if (!newName) {
@@ -3938,6 +4089,15 @@
       });
     }
 
+    // Collect special inviters if specific_members
+    const newSpecialInviters = [];
+    if (newInvitePolicy === 'specific_members') {
+      const cbs = document.querySelectorAll('.edit-project-inviter-cb:checked');
+      cbs.forEach(cb => {
+        newSpecialInviters.push(cb.value);
+      });
+    }
+
     // Collect rankings viewers if selected
     const newRankingsViewers = [];
     if (newRankingsVis === 'selected') {
@@ -3956,6 +4116,8 @@
     project.endDate = newEndDate;
     project.taskAssignmentPolicy = newAssignPolicy;
     project.specialAssigners = newSpecialAssigners;
+    project.memberInvitationPolicy = newInvitePolicy;
+    project.specialInviters = newSpecialInviters;
     project.rankingsVisibility = newRankingsVis;
     project.rankingsViewers = newRankingsViewers;
     if (!project.creatorEmail && state.currentUser) {
@@ -3965,7 +4127,7 @@
     if (!project.activity) project.activity = [];
     project.activity.unshift({
       id: 'act-' + Date.now(),
-      text: `${state.currentUser.name} updated project details (Name, Category, Description, End Date, Assignment & Rankings settings)`,
+      text: `${state.currentUser.name} updated project details (Name, Category, Description, End Date, Allocation & Invitation settings)`,
       time: 'Just now',
       icon: 'settings'
     });
@@ -5767,6 +5929,7 @@
             ${roleDisplayHtml}
             ${isCreator ? '<span class="team-badge-creator">👑 Owner</span>' : ''}
             ${isSpecial ? '<span class="team-badge-special">⭐ Assigner</span>' : ''}
+            ${(project.specialInviters && project.specialInviters.includes(m.id)) ? '<span class="team-badge-special" style="background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25);" title="Designated Special Inviter">✉️ Inviter</span>' : ''}
           </div>
 
           <div class="team-card-metrics">
@@ -6554,6 +6717,13 @@
 
     renderSpecialAssignersCreationList();
 
+    // Reset Member Invitation permission selector to "anyone"
+    const invitePolicySelect = document.getElementById('project-invite-permission-select');
+    if (invitePolicySelect) invitePolicySelect.value = 'anyone';
+    toggleSpecialInviterField('anyone');
+
+    renderSpecialInvitersCreationList();
+
     // Reset Rankings Visibility selector to "everyone"
     const visSelect = document.getElementById('project-rankings-visibility-select');
     if (visSelect) visSelect.value = 'everyone';
@@ -6569,6 +6739,43 @@
       // Show only for Level 3: Specific Members
       container.style.display = (value === 'specific_members') ? 'block' : 'none';
     }
+  }
+
+  function toggleSpecialInviterField(value) {
+    const container = document.getElementById('special-inviters-container');
+    if (container) {
+      // Show only for Level 3: Specific Members
+      container.style.display = (value === 'specific_members') ? 'block' : 'none';
+    }
+  }
+
+  function renderSpecialInvitersCreationList() {
+    const container = document.getElementById('create-project-special-inviters-list');
+    if (!container) return;
+
+    const actualCollaborators = getActualCollaborators();
+
+    if (actualCollaborators.length === 0) {
+      container.innerHTML = `
+        <div style="padding: 12px; background: var(--bg-card); border-radius: 8px; border: 1px dashed var(--border-subtle); color: var(--text-muted); font-size: 0.85rem; text-align: center;">
+          <div style="font-size: 1.2rem; margin-bottom: 4px;">👥</div>
+          <strong>No previous collaborators found</strong><br>
+          Once your project is created, invite team members anytime in the project's <strong>Team</strong> tab.
+        </div>
+      `;
+      return;
+    }
+
+    let html = '';
+    actualCollaborators.forEach(collab => {
+      html += `
+        <label class="assigner-checkbox-item">
+          <input type="checkbox" value="${collab.id}" class="create-special-inviter-cb">
+          <span><strong>${escapeHtml(collab.name)}</strong> (${escapeHtml(collab.role)})</span>
+        </label>
+      `;
+    });
+    container.innerHTML = html;
   }
 
   function renderSpecialAssignersCreationList() {
@@ -6607,6 +6814,7 @@
     const startInput = document.getElementById('project-start-date');
     const deadlineInput = document.getElementById('project-deadline');
     const policySelect = document.getElementById('project-assign-permission-select');
+    const invitePolicySelect = document.getElementById('project-invite-permission-select');
 
     const name = nameInput.value.trim();
     const group = (groupInput && groupInput.value.trim()) ? groupInput.value.trim() : '';
@@ -6614,6 +6822,7 @@
     const startDate = startInput.value;
     const deadline = deadlineInput.value;
     const taskAssignmentPolicy = policySelect ? policySelect.value : 'anyone'; // 'anyone' | 'creator_admin' | 'specific_members'
+    const memberInvitationPolicy = invitePolicySelect ? invitePolicySelect.value : 'anyone';
 
     if (!name || !group || !desc || !startDate || !deadline) {
       showToast('Please fill in all project fields, including Group / Category.', 'error');
@@ -6662,6 +6871,26 @@
       });
     }
 
+    // Collect specific inviters if Level 3 chosen
+    const specialInviterIds = [];
+    if (memberInvitationPolicy === 'specific_members') {
+      const actualCollaborators = getActualCollaborators();
+      document.querySelectorAll('.create-special-inviter-cb:checked').forEach(cb => {
+        specialInviterIds.push(cb.value);
+        // Automatically add them to the project members roster
+        const collab = actualCollaborators.find(c => c.id === cb.value);
+        if (collab && !initialMembers.some(m => m.id === collab.id || (m.email && collab.email && m.email.toLowerCase() === collab.email.toLowerCase()))) {
+          initialMembers.push({
+            id: collab.id,
+            name: collab.name,
+            email: collab.email,
+            role: collab.role || 'Contributor',
+            avatar: collab.avatar
+          });
+        }
+      });
+    }
+
     // Collect rankings visibility settings
     const visSelect = document.getElementById('project-rankings-visibility-select');
     const rankingsVisibility = visSelect ? visSelect.value : 'everyone'; // 'everyone' | 'admin' | 'selected'
@@ -6695,6 +6924,8 @@
       creatorEmail: userEmail,
       taskAssignmentPolicy: taskAssignmentPolicy,
       specialAssigners: specialAssignerIds,
+      memberInvitationPolicy: memberInvitationPolicy,
+      specialInviters: specialInviterIds,
       rankingsVisibility: rankingsVisibility,
       rankingsViewers: rankingsViewerIds,
       members: initialMembers,
@@ -6950,6 +7181,50 @@
         icon: 'member'
       });
       showToast(`⭐ Designated ${memberName} as Specific Assigner!`, 'success');
+    }
+
+    saveState();
+    syncProjectToFirestore(project);
+    renderProjectOverview(project);
+  }
+
+  function toggleSpecialInviter(projectId, memberId) {
+    const project = state.projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    if (!isProjectCreator(project, state.currentUser) && !isProjectOwner(project, state.currentUser)) {
+      showToast('Only the project creator can appoint special inviters.', 'error');
+      return;
+    }
+
+    if (!project.specialInviters) {
+      project.specialInviters = [];
+    }
+
+    const member = project.members.find(m => m.id === memberId);
+    const memberName = member ? member.name : 'Team member';
+
+    const index = project.specialInviters.indexOf(memberId);
+    if (index > -1) {
+      project.specialInviters.splice(index, 1);
+      if (!project.activity) project.activity = [];
+      project.activity.unshift({
+        id: 'act-' + Date.now(),
+        text: `${state.currentUser.name} revoked Specific Inviter permission from ${memberName}`,
+        time: 'Just now',
+        icon: 'member'
+      });
+      showToast(`Revoked invitation privileges from ${memberName}`, 'info');
+    } else {
+      project.specialInviters.push(memberId);
+      if (!project.activity) project.activity = [];
+      project.activity.unshift({
+        id: 'act-' + Date.now(),
+        text: `${state.currentUser.name} designated ${memberName} as a Specific Inviter`,
+        time: 'Just now',
+        icon: 'member'
+      });
+      showToast(`✉️ Designated ${memberName} as Specific Inviter!`, 'success');
     }
 
     saveState();
@@ -7543,6 +7818,11 @@
     const project = state.projects.find(p => p.id === state.activeProjectId);
     if (!project) return;
 
+    if (!canUserInviteMembers(project, state.currentUser)) {
+      showToast('Permission denied. You are not authorized to invite members to this project.', 'error');
+      return;
+    }
+
     // Set Share link & IDs
     const emailInput = document.getElementById('invite-email-input');
     const nameInput = document.getElementById('invite-name-input');
@@ -7649,6 +7929,11 @@
     const project = state.projects.find(p => p.id === state.activeProjectId);
     if (!project) return;
 
+    if (!canUserInviteMembers(project, state.currentUser)) {
+      showToast('Permission denied. You are not authorized to invite members to this project.', 'error');
+      return;
+    }
+
     let collab = null;
     if (typeof collaboratorOrId === 'object' && collaboratorOrId !== null) {
       collab = collaboratorOrId;
@@ -7720,6 +8005,11 @@
   function handleAddEmailMember() {
     const project = state.projects.find(p => p.id === state.activeProjectId);
     if (!project) return;
+
+    if (!canUserInviteMembers(project, state.currentUser)) {
+      showToast('Permission denied. You are not authorized to invite members to this project.', 'error');
+      return;
+    }
 
     const emailInput = document.getElementById('invite-email-input');
     const nameInput = document.getElementById('invite-name-input');
@@ -8871,6 +9161,9 @@
     toggleSpecialAssigner,
     toggleSpecialAssignerField,
     renderSpecialAssignersCreationList,
+    toggleSpecialInviter,
+    toggleSpecialInviterField,
+    renderSpecialInvitersCreationList,
     getActualCollaborators,
     toggleNotificationDrawer,
     closeNotificationDrawer,
@@ -8928,6 +9221,7 @@
     reassignTask,
     canUserAssignOthers,
     canUserAssignSelf,
+    canUserInviteMembers,
     getProjectMemberForUser,
     isTaskAssignedToUser,
     handleAddEmailMember,
@@ -8964,6 +9258,7 @@
     isProjectCreator,
     openEditProjectDetailModal,
     toggleEditProjectAssignPolicy,
+    toggleEditProjectInvitePolicy,
     toggleEditProjectRankingsVis,
     handleSaveProjectDetail,
     toggleProjectSettingsDropdown,

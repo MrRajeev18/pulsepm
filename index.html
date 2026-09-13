@@ -314,11 +314,12 @@
                 <span>Timeline: <strong id="detail-project-dates">Sep 1, 2026 - Oct 15, 2026</strong></span>
                 <span class="badge badge-deadline" id="detail-deadline-pill">24 days remaining</span>
                 <span class="badge badge-policy" id="detail-assignment-policy-badge">who can Assign: Anyone</span>
+                <span class="badge badge-policy" id="detail-invite-policy-badge">Who can Invite: Everyone</span>
               </div>
             </div>
 
             <div class="meta-right">
-              <button class="btn btn-secondary btn-header-action" onclick="window.App.openInviteModal();" title="Invite new members to project">
+              <button class="btn btn-secondary btn-header-action" id="detail-header-invite-btn" onclick="window.App.openInviteModal();" title="Invite new members to project">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
                 <span>Invite Member</span>
               </button>
@@ -470,7 +471,7 @@
                 <div class="card-header">
                   <div class="header-title-row">
                     <h3>Project Team</h3>
-                    <button class="btn btn-ghost btn-xs" onclick="window.App.openInviteModal();">+ Invite</button>
+                    <button class="btn btn-ghost btn-xs" id="overview-invite-btn" onclick="window.App.openInviteModal();">+ Invite</button>
                   </div>
                 </div>
                 <div class="card-body">
@@ -511,7 +512,7 @@
                     <code id="overview-join-code">000-000</code>
                     <button class="copy-mini-btn" onclick="window.App.copyText(document.getElementById('overview-join-code').innerText, 'Join Code');">Copy</button>
                   </div>
-                  <button class="btn btn-secondary btn-sm btn-block" style="margin-top: 12px;" onclick="window.App.openInviteModal(3);">
+                  <button class="btn btn-secondary btn-sm btn-block" id="overview-share-code-btn" style="margin-top: 12px;" onclick="window.App.openInviteModal(3);">
                     Open Full Invite Panel
                   </button>
                 </div>
@@ -659,7 +660,7 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 <input type="text" id="team-search-input" placeholder="Search members..." oninput="window.App.filterProjectTeam(this.value)">
               </div>
-              <button class="btn btn-primary btn-sm" onclick="window.App.openInviteModal();">
+              <button class="btn btn-primary btn-sm" id="team-add-member-btn" onclick="window.App.openInviteModal();">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
                 <span>+ Invite Member</span>
               </button>
@@ -686,7 +687,7 @@
                 </div>
               </div>
               <div class="chat-actions">
-                <button class="btn btn-ghost btn-xs" onclick="window.App.openInviteModal();">+ Invite to Chat</button>
+                <button class="btn btn-ghost btn-xs" id="chat-invite-btn" onclick="window.App.openInviteModal();">+ Invite to Chat</button>
               </div>
             </div>
 
@@ -778,6 +779,26 @@
               <label>Select Specific Members Who Can Assign Tasks</label>
               <p class="field-hint" style="margin-bottom: 8px;">Check the specific team members authorized to assign tasks to other colleagues:</p>
               <div id="create-project-special-assigners-list" class="special-assigners-select-list">
+                <!-- Dynamically rendered by JS -->
+              </div>
+            </div>
+
+            <!-- MEMBER INVITATION PERMISSION SETTING (4 OPTIONS) -->
+            <div class="form-group" style="margin-top: 14px;">
+              <label for="project-invite-permission-select">Who Can Invite Members? <span class="required">*</span></label>
+              <select id="project-invite-permission-select" onchange="window.App.toggleSpecialInviterField(this.value)" required>
+                <option value="admin_only">1. Only Admin (Only creator of the project can invite)</option>
+                <option value="admin_and_self">2. Admin + Themself (Creator can invite all & members can invite for themself)</option>
+                <option value="specific_members">3. Selected member (Admin and Selected members can invite)</option>
+                <option value="anyone" selected>4. Everyone (Everyone can invite members)</option>
+              </select>
+              <small class="field-hint">💡 Control who is authorized to invite new members or collaborators to this project.</small>
+            </div>
+
+            <div id="special-inviters-container" class="form-group" style="display: none;">
+              <label>Select Specific Members Who Can Invite Members</label>
+              <p class="field-hint" style="margin-bottom: 8px;">Check the specific team members authorized to invite new members to this project:</p>
+              <div id="create-project-special-inviters-list" class="special-assigners-select-list">
                 <!-- Dynamically rendered by JS -->
               </div>
             </div>
@@ -1355,6 +1376,24 @@
               <label style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 6px;">Select Specific Members Who Can Assign Tasks</label>
               <p class="field-hint" style="margin-bottom: 8px;">Check the team members authorized to assign tasks to colleagues:</p>
               <div id="edit-project-special-assigners-list" class="special-assigners-select-list" style="max-height: 160px; overflow-y: auto;">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-project-invite-policy">Who can invite members? (Member Invitation) <span class="required">*</span></label>
+              <select id="edit-project-invite-policy" class="form-control" onchange="window.App.toggleEditProjectInvitePolicy(this.value);" required>
+                <option value="admin_only">1. Only Admin (Only creator of the project can invite)</option>
+                <option value="admin_and_self">2. Admin + Themself (Creator can invite all & members can invite for themself)</option>
+                <option value="specific_members">3. Selected member (Admin and Selected members can invite)</option>
+                <option value="anyone">4. Everyone (Everyone can invite members)</option>
+              </select>
+            </div>
+
+            <div id="edit-project-special-inviters-container" class="form-group" style="display: none; background: var(--bg-surface); padding: 12px; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+              <label style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 6px;">Select Specific Members Who Can Invite Members</label>
+              <p class="field-hint" style="margin-bottom: 8px;">Check the team members authorized to invite new members to this project:</p>
+              <div id="edit-project-special-inviters-list" class="special-assigners-select-list" style="max-height: 160px; overflow-y: auto;">
                 <!-- Populated dynamically -->
               </div>
             </div>
@@ -1960,6 +1999,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="app.js?v=3.9"></script>
+  <script src="app.js?v=4.0"></script>
 </body>
 </html>
