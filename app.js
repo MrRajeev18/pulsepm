@@ -351,9 +351,19 @@
     } catch (e) {
       console.warn('Could not read localStorage:', e);
     }
-    // Check saved theme
-    const savedTheme = localStorage.getItem('pulsepm_theme') || state.theme || 'light';
-    applyTheme(savedTheme);
+    // Determine active theme per user account or default to light
+    let initialTheme = 'light';
+    if (state.isLoggedIn && state.currentUser) {
+      const uid = state.currentUser.id || state.currentUser.uid;
+      const userEmail = ((state.currentUser.identities && state.currentUser.identities.email) || state.currentUser.email || '').trim().toLowerCase();
+      initialTheme = (uid && localStorage.getItem('pulsepm_theme_' + uid)) ||
+                     (userEmail && localStorage.getItem('pulsepm_theme_' + userEmail)) ||
+                     state.currentUser.theme ||
+                     'light';
+    } else {
+      initialTheme = 'light';
+    }
+    applyTheme(initialTheme, false);
   }
 
   function saveState() {
@@ -374,13 +384,30 @@
     }
   }
 
-  function applyTheme(theme) {
+  function applyTheme(theme, saveForUser = true) {
     state.theme = theme;
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('pulsepm_theme', theme);
+    try {
+      localStorage.setItem('pulsepm_theme', theme);
+    } catch (e) {}
     const themeBtn = document.getElementById('theme-toggle-btn');
     if (themeBtn) {
       themeBtn.innerHTML = theme === 'dark' ? '<span>☀️ Light Mode</span>' : '<span>🌙 Dark Mode</span>';
+    }
+    if (saveForUser && state.currentUser) {
+      state.currentUser.theme = theme;
+      const uid = state.currentUser.id || state.currentUser.uid;
+      const userEmail = ((state.currentUser.identities && state.currentUser.identities.email) || state.currentUser.email || '').trim().toLowerCase();
+      if (uid) {
+        try { localStorage.setItem('pulsepm_theme_' + uid, theme); } catch (e) {}
+      }
+      if (userEmail) {
+        try { localStorage.setItem('pulsepm_theme_' + userEmail, theme); } catch (e) {}
+      }
+      if (isFirebaseLive && firebaseDb && uid) {
+        firebaseDb.collection('users').doc(uid).set({ theme: theme }, { merge: true }).catch(err => console.warn('Could not sync theme to Firestore:', err));
+      }
+      saveState();
     }
   }
 
@@ -1586,7 +1613,12 @@
       });
     }
 
-    saveState();
+    // Load this specific user's saved theme preference immediately
+    const userEmailKey = (user.email || '').trim().toLowerCase();
+    const localUserTheme = (user.uid && localStorage.getItem('pulsepm_theme_' + user.uid)) ||
+                           (userEmailKey && localStorage.getItem('pulsepm_theme_' + userEmailKey)) ||
+                           'light';
+    applyTheme(localUserTheme, false);
 
     document.getElementById('auth-view').style.display = 'none';
     document.getElementById('main-app').style.display = 'flex';
@@ -1634,6 +1666,19 @@
             localStorage.setItem('pulsepm_pwd_set_' + user.uid, 'true');
             state.currentUser.hasPasswordSet = true;
           }
+          if (data && data.theme) {
+            try {
+              localStorage.setItem('pulsepm_theme_' + user.uid, data.theme);
+              if (user.email) localStorage.setItem('pulsepm_theme_' + user.email.toLowerCase(), data.theme);
+            } catch (e) {}
+            applyTheme(data.theme, false);
+          } else {
+            const userEmailKey = (user.email || '').trim().toLowerCase();
+            const localTheme = (user.uid && localStorage.getItem('pulsepm_theme_' + user.uid)) ||
+                              (userEmailKey && localStorage.getItem('pulsepm_theme_' + userEmailKey)) ||
+                              'light';
+            applyTheme(localTheme, false);
+          }
         }
 
         if (authoritativePhone && state.currentUser) {
@@ -1643,13 +1688,15 @@
           updateNavigationUser();
         }
 
-        // Keep Firestore user record updated with lastLogin, preserving the custom name & phone
+        // Keep Firestore user record updated with lastLogin, preserving the custom name, phone & theme
+        const currentTheme = state.currentUser ? (state.currentUser.theme || state.theme || 'light') : 'light';
         const updatePayload = {
           uid: user.uid,
           name: authoritativeName,
           displayName: authoritativeName,
           email: user.email || '',
           avatar: authoritativeAvatar,
+          theme: currentTheme,
           lastLogin: new Date().toISOString()
         };
         if (authoritativePhone) {
@@ -1891,6 +1938,13 @@
       updateNotificationBell();
     }
 
+    // Load this specific user's saved theme preference
+    const userTheme = (userId && localStorage.getItem('pulsepm_theme_' + userId)) ||
+                      (userEmail && localStorage.getItem('pulsepm_theme_' + userEmail)) ||
+                      state.currentUser.theme ||
+                      'light';
+    applyTheme(userTheme, false);
+
     document.getElementById('auth-view').style.display = 'none';
     document.getElementById('main-app').style.display = 'flex';
 
@@ -1920,6 +1974,9 @@
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem('pulsepm_custom_phone_demo');
     } catch(e){}
+
+    // Reset theme back to default light mode on logout so other accounts start clean
+    applyTheme('light', false);
 
     document.getElementById('main-app').style.display = 'none';
     document.getElementById('auth-view').style.display = 'flex';
@@ -10029,6 +10086,7 @@
     applyUserNameUpdate,
     computeAvatarInitials,
     openSettingsModal,
+    applyTheme,
     toggleTheme,
     resetDemoData,
     openModal,
