@@ -4322,20 +4322,6 @@
             <span>Assigned to You</span>
           </span>
         `;
-      } else if (isUnassigned) {
-        actionsHtml += `
-          <button type="button" class="btn-assign-self" onclick="window.App.assignTaskToMyself('${project.id}', '${task.id}')" title="Assign this unassigned task to yourself">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <span>🙋 Assign to Me</span>
-          </button>
-        `;
-      } else if (canReassign) {
-        actionsHtml += `
-          <button type="button" class="btn-assign-self" onclick="window.App.assignTaskToMyself('${project.id}', '${task.id}')" title="Reassign this task to yourself">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <span>🙋 Assign to Me</span>
-          </button>
-        `;
       }
 
       // If user has authority to reassign (Admin, Task Creator, or policy allows everyone / specific members), provide quick reassign dropdown
@@ -4374,16 +4360,85 @@
       modalEl.dataset.taskId = task.id;
     }
 
-    // Render Creator Name
+    // Render Creator Name (resolving actual member name and role)
     const creatorEl = document.getElementById('task-detail-creator-name');
     if (creatorEl) {
-      creatorEl.innerText = task.creatorName || (task.creatorEmail ? task.creatorEmail.split('@')[0] : 'Project Lead');
+      let resolvedName = '';
+      let resolvedRole = '';
+
+      // 1. Check project members by creatorId, createdBy, or creatorEmail
+      if (project && Array.isArray(project.members)) {
+        const foundMem = project.members.find(m => 
+          (task.creatorId && m.id && String(m.id) === String(task.creatorId)) ||
+          (task.createdBy && m.id && String(m.id) === String(task.createdBy)) ||
+          (task.creatorEmail && m.email && m.email.trim().toLowerCase() === task.creatorEmail.trim().toLowerCase())
+        );
+        if (foundMem) {
+          resolvedName = foundMem.name || '';
+          resolvedRole = foundMem.role || '';
+        }
+      }
+
+      // 2. Check task.creatorName if present and not placeholder
+      if (!resolvedName && task.creatorName && task.creatorName !== 'Project Lead') {
+        resolvedName = task.creatorName;
+      }
+
+      // 3. Check collaborators
+      if (!resolvedName && Array.isArray(state.collaborators)) {
+        const foundCollab = state.collaborators.find(c => 
+          (task.creatorId && c.id && String(c.id) === String(task.creatorId)) ||
+          (task.creatorEmail && c.email && c.email.trim().toLowerCase() === task.creatorEmail.trim().toLowerCase())
+        );
+        if (foundCollab) {
+          resolvedName = foundCollab.name || '';
+          resolvedRole = foundCollab.role || '';
+        }
+      }
+
+      // 4. Check project creator / owner
+      if (!resolvedName && project) {
+        const ownerMem = (project.members || []).find(m => 
+          (project.creatorId && m.id && String(m.id) === String(project.creatorId)) ||
+          (project.creatorEmail && m.email && m.email.trim().toLowerCase() === project.creatorEmail.trim().toLowerCase()) ||
+          (m.role && m.role.toLowerCase().includes('owner'))
+        );
+        if (ownerMem) {
+          resolvedName = ownerMem.name || '';
+          resolvedRole = ownerMem.role || '';
+        }
+      }
+
+      // 5. Fallback to current user if matches or if no creator was set
+      if (!resolvedName && state.currentUser) {
+        const currentUid = state.currentUser.id || state.currentUser.uid;
+        const currentEmail = getCurrentUserEmail(state.currentUser);
+        if ((task.creatorId && currentUid && String(task.creatorId) === String(currentUid)) ||
+            (task.creatorEmail && currentEmail && task.creatorEmail.trim().toLowerCase() === currentEmail) ||
+            (!task.creatorId && !task.creatorEmail)) {
+          resolvedName = state.currentUser.name;
+          resolvedRole = state.currentUser.role || '';
+        }
+      }
+
+      if (!resolvedName && task.creatorEmail) {
+        resolvedName = task.creatorEmail.split('@')[0];
+      }
+      if (!resolvedName) {
+        resolvedName = task.creatorName || (state.currentUser ? state.currentUser.name : 'Team Member');
+      }
+
+      // Format with both Name and Role if available: e.g. "Rajeev ranjan (Project Lead)" or "Rajeev ranjan"
+      if (resolvedRole && !resolvedName.toLowerCase().includes(resolvedRole.toLowerCase())) {
+        creatorEl.innerText = `${resolvedName} (${resolvedRole})`;
+      } else {
+        creatorEl.innerText = resolvedName;
+      }
     }
 
-    // Render delete button in both header and footer
+    // Render delete button in header ONLY (bottom delete button removed)
     const canDelete = canUserDeleteTask(project, task, state.currentUser);
     const headerDeleteContainer = document.getElementById('task-detail-header-delete-container');
-    const footerDeleteContainer = document.getElementById('task-detail-delete-container');
 
     const deleteBtnHtml = canDelete ? `
       <button type="button" class="btn-delete-task" onclick="window.App.confirmDeleteTask('${escapeHtml(project.id)}', '${escapeHtml(task.id)}');" title="Permanently delete this task and update team scores">
@@ -4398,7 +4453,6 @@
     `;
 
     if (headerDeleteContainer) headerDeleteContainer.innerHTML = deleteBtnHtml;
-    if (footerDeleteContainer) footerDeleteContainer.innerHTML = deleteBtnHtml;
 
     openModal('modal-task-detail');
   }
