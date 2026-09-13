@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=2.6">
+  <link rel="stylesheet" href="styles.css?v=2.7">
 </head>
 <body>
   <div id="app" class="app-root">
@@ -1026,55 +1026,75 @@
           </div>
         </div>
 
-        <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
-          <!-- Task Meta Row -->
-          <div class="task-detail-meta-grid">
-            <div class="task-detail-meta-item">
-              <span class="meta-label">Status</span>
-              <select id="task-detail-status-select" class="form-control" style="padding: 4px 8px; font-size: 0.82rem; height: auto;" onchange="window.App.handleDetailStatusChange(this.value);">
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-              </select>
-              <span id="task-detail-status-locked-hint" style="display: none; font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">🔒 Status locked to assignee & assigners</span>
-            </div>
-            <div class="task-detail-meta-item">
-              <span class="meta-label">Due Date</span>
-              <span id="task-detail-due-date" class="meta-value">--</span>
-            </div>
-            <div class="task-detail-meta-item" id="task-detail-creator-container">
-              <span class="meta-label">Created By</span>
-              <span id="task-detail-creator-name" class="meta-value" style="font-weight: 500;">--</span>
-            </div>
-            <div class="task-detail-meta-item" id="task-detail-completed-date-container" style="display: none;">
-              <span class="meta-label">Completed Date</span>
-              <span id="task-detail-completed-date" class="meta-value" style="color: var(--success, #10b981); font-weight: 600;">--</span>
-            </div>
-            <div class="task-detail-meta-item task-detail-meta-assignee" style="grid-column: 1 / -1;">
-              <span class="meta-label">Assigned Member</span>
-              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; width: 100%; margin-top: 4px;">
-                <div id="task-detail-assignee-box" class="card-assignee">
-                  <div id="task-detail-assignee-avatar" class="card-assignee-avatar">--</div>
-                  <span id="task-detail-assignee-name" class="card-assignee-name">--</span>
+        <div class="modal-body" style="max-height: 80vh; overflow-y: auto; padding: 14px 20px;">
+          <!-- COMPACT TASK DETAILS BENTO CARD -->
+          <div class="task-detail-meta-card">
+            <!-- Left Column: Status & Timeline -->
+            <div class="meta-card-section meta-section-status">
+              <div class="meta-field">
+                <span class="meta-field-label">Status</span>
+                <div class="status-select-wrapper">
+                  <select id="task-detail-status-select" class="form-control task-status-select" onchange="window.App.handleDetailStatusChange(this.value);">
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                  </select>
                 </div>
-                <div id="task-detail-assignee-actions" style="display: flex; align-items: center; gap: 8px;"></div>
+                <span id="task-detail-status-locked-hint" style="display: none; font-size: 0.7rem; color: var(--text-muted); margin-top: 3px;">🔒 Locked to assignee & assigners</span>
+              </div>
+
+              <div class="meta-field">
+                <span class="meta-field-label">Timeline</span>
+                <div class="meta-dates-row">
+                  <div class="meta-date-chip" title="Task Due Date">
+                    <span class="chip-icon">📅</span>
+                    <span class="chip-label">Due:</span>
+                    <span id="task-detail-due-date" class="chip-value">--</span>
+                  </div>
+                  <div class="meta-date-chip completed" id="task-detail-completed-date-container" style="display: none;" title="Task Completed Date">
+                    <span class="chip-icon">✅</span>
+                    <span class="chip-label">Done:</span>
+                    <span id="task-detail-completed-date" class="chip-value">--</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Column: Assigned Member & Creator -->
+            <div class="meta-card-section meta-section-people">
+              <div class="meta-field" style="width: 100%;">
+                <div class="meta-field-header">
+                  <span class="meta-field-label">Assigned Member</span>
+                  <div class="task-creator-pill" id="task-detail-creator-container" title="Task Creator">
+                    <span class="creator-label">Created by:</span>
+                    <span id="task-detail-creator-name" class="creator-name">--</span>
+                  </div>
+                </div>
+                <div class="meta-assignee-row">
+                  <div id="task-detail-assignee-box" class="card-assignee">
+                    <div id="task-detail-assignee-avatar" class="card-assignee-avatar">--</div>
+                    <span id="task-detail-assignee-name" class="card-assignee-name">--</span>
+                  </div>
+                  <div id="task-detail-assignee-actions" class="meta-assignee-actions"></div>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- Task Description -->
-          <div class="task-detail-section" style="margin-top: 16px;">
-            <label class="section-subheading">Description</label>
+          <!-- Description Section (Sleek Compact Card) -->
+          <div class="task-desc-container">
+            <div class="task-desc-header">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+              <span>Description</span>
+            </div>
             <p id="task-detail-description" class="task-detail-desc-text">No description provided.</p>
           </div>
 
-          <div class="detail-divider"></div>
-
           <!-- SUBTASKS SECTION -->
-          <div class="task-detail-section">
-            <div class="section-title-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <div class="task-detail-section task-subtasks-section">
+            <div class="section-title-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
               <label class="section-subheading" style="margin: 0; display: flex; align-items: center; gap: 6px;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 <span>Subtasks Checklist</span>
               </label>
               <span id="subtasks-progress-label" class="subtasks-progress-badge">0/0 Completed (0%)</span>
@@ -1097,12 +1117,10 @@
             </form>
           </div>
 
-          <div class="detail-divider"></div>
-
-          <!-- COMMENTS SECTION (Assignee Only) -->
-          <div class="task-detail-section">
-            <label class="section-subheading" style="display: flex; align-items: center; gap: 6px; margin-bottom: 12px;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <!-- COMMENTS SECTION -->
+          <div class="task-detail-section task-comments-section">
+            <label class="section-subheading" style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               <span>Task Discussion & Updates</span>
             </label>
 
@@ -1111,12 +1129,12 @@
               <!-- Rendered dynamically by JS -->
             </div>
 
-            <!-- Commenting Area (Conditional: Assignee Form VS Locked Alert) -->
+            <!-- Commenting Area -->
             <div id="task-comment-form-container" class="task-comment-form-container">
               <form id="form-add-task-comment" onsubmit="event.preventDefault(); window.App.handleAddTaskCommentSubmit();">
                 <div class="comment-input-wrap">
                   <textarea id="task-comment-input" class="form-control" rows="2" placeholder="Write a progress note or deliverable update as the assignee..." required></textarea>
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                  <div class="comment-submit-bar" style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
                     <span class="comment-assignee-badge" id="comment-active-assignee-badge">✍️ Commenting as Assigned Member</span>
                     <button type="submit" class="btn btn-primary btn-sm">
                       <span>Post Comment</span>
@@ -1127,10 +1145,10 @@
             </div>
 
             <div id="task-comment-locked-alert" class="task-comment-locked-alert" style="display: none;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
               <div>
                 <strong>Commenting restricted to task assignee</strong>
-                <p id="task-comment-locked-message" style="margin: 2px 0 0; font-size: 0.8rem;">Only the assigned member can post comments on this task. Other members can view updates in read-only mode.</p>
+                <p id="task-comment-locked-message" style="margin: 2px 0 0; font-size: 0.78rem;">Only the assigned member can post comments on this task. Other members can view updates in read-only mode.</p>
               </div>
             </div>
           </div>
@@ -1934,6 +1952,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="app.js?v=2.6"></script>
+  <script src="app.js?v=2.7"></script>
 </body>
 </html>

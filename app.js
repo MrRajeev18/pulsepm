@@ -1779,14 +1779,16 @@
       return true;
     }
 
-    // 2. Check if user has explicit 'Owner' role in project.members
+    // 2. Check if user has explicit 'Owner' or 'Project Lead' role in project.members
     if (project.members && Array.isArray(project.members)) {
+      const userName = (user.name || '').trim();
       const member = project.members.find(m => {
         if (m.id && userId && String(m.id) === String(userId)) return true;
         if (m.email && userEmail && m.email.trim().toLowerCase() === userEmail) return true;
+        if (m.name && userName && isNameMatch(m.name, userName)) return true;
         return false;
       });
-      if (member && (member.role === 'Owner' || member.role === 'owner')) {
+      if (member && ['owner', 'project lead', 'admin'].some(r => (member.role || '').toLowerCase().includes(r))) {
         return true;
       }
 
@@ -1795,6 +1797,7 @@
         const first = project.members[0];
         if (first.id && userId && String(first.id) === String(userId)) return true;
         if (first.email && userEmail && first.email.trim().toLowerCase() === userEmail) return true;
+        if (first.name && userName && isNameMatch(first.name, userName)) return true;
       }
     }
 
@@ -1862,6 +1865,20 @@
     return false;
   }
 
+  function isNameMatch(name1, name2) {
+    if (!name1 || !name2) return false;
+    const n1 = name1.trim().toLowerCase();
+    const n2 = name2.trim().toLowerCase();
+    if (n1 === n2) return true;
+    const parts1 = n1.split(/\s+/).filter(Boolean);
+    const parts2 = n2.split(/\s+/).filter(Boolean);
+    if (parts1.length >= 2 && parts2.length >= 2) {
+      if (parts1[0] === parts2[0] && parts1[1] === parts2[1]) return true;
+    }
+    if (n1.includes(n2) || n2.includes(n1)) return true;
+    return false;
+  }
+
   function getProjectMemberForUser(project, user) {
     if (!project || !Array.isArray(project.members) || !user) return null;
     const userId = user.id || user.uid;
@@ -1873,9 +1890,9 @@
     ).trim().toLowerCase();
 
     return project.members.find(m => {
-      if (m.id && userId && m.id === userId) return true;
+      if (m.id && userId && String(m.id) === String(userId)) return true;
       if (m.email && userEmail && m.email.trim().toLowerCase() === userEmail) return true;
-      if (m.name && user.name && m.name.trim().toLowerCase() === user.name.trim().toLowerCase()) return true;
+      if (m.name && user.name && isNameMatch(m.name, user.name)) return true;
       return false;
     }) || null;
   }
@@ -1889,7 +1906,8 @@
     if (task.creatorId && userId && String(task.creatorId) === String(userId)) return true;
     if (task.createdBy && userId && String(task.createdBy) === String(userId)) return true;
     if (task.creatorEmail && userEmail && task.creatorEmail.trim().toLowerCase() === userEmail.trim().toLowerCase()) return true;
-    if (task.creatorName && userName && task.creatorName.trim().toLowerCase() === userName) return true;
+    if (task.creatorName && userName && isNameMatch(task.creatorName, user.name)) return true;
+    if (task.creatorName && ['project lead', 'admin', 'owner'].some(r => task.creatorName.toLowerCase().includes(r)) && (isProjectAdmin(null, user) || isProjectOwner(null, user))) return true;
 
     return false;
   }
@@ -4579,8 +4597,8 @@
 
     if (total === 0) {
       listContainer.innerHTML = `
-        <div style="padding: 12px; text-align: center; color: var(--text-muted); font-size: 0.82rem; background: var(--bg-subtle); border-radius: var(--radius-sm);">
-          No subtasks yet. Add checklists below to track deliverables.
+        <div class="subtask-empty-hint">
+          <span>📋 No subtasks yet. Add checklist items below to track deliverables.</span>
         </div>
       `;
       return;
@@ -4617,7 +4635,7 @@
     if (task.comments.length === 0) {
       listContainer.innerHTML = `
         <div class="task-comment-empty">
-          No comments or updates yet on this task.
+          <span>💬 No discussion notes yet. Share a progress update below.</span>
         </div>
       `;
     } else {
@@ -5250,6 +5268,16 @@
     if (member) {
       const mRole = (member.role || '').toLowerCase();
       if (['owner', 'project lead', 'admin', 'lead', 'product lead', 'manager', 'creator'].some(r => mRole.includes(r))) return true;
+    }
+
+    // 3b. Direct name match in project.members
+    const userName = (user.name || '').trim();
+    if (userName && Array.isArray(project.members)) {
+      const matchByName = project.members.find(m => isNameMatch(m.name, userName));
+      if (matchByName) {
+        const mRole = (matchByName.role || '').toLowerCase();
+        if (['owner', 'project lead', 'admin', 'lead', 'product lead', 'manager', 'creator'].some(r => mRole.includes(r))) return true;
+      }
     }
 
     // 4. Project owner / creator
