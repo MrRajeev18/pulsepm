@@ -7529,7 +7529,21 @@
 
     let html = '';
     actualCollaborators.forEach(collab => {
-      const isAlreadyMember = project.members.some(m => m.email.toLowerCase() === collab.email.toLowerCase());
+      const isAlreadyMember = (project.members || []).some(m => m.email && collab.email && m.email.trim().toLowerCase() === collab.email.trim().toLowerCase());
+      const isPendingInvite = (project.pendingInvitations || []).some(inv =>
+        (inv.status === 'pending' || !inv.status) &&
+        ((inv.inviteeEmail && collab.email && inv.inviteeEmail.trim().toLowerCase() === collab.email.trim().toLowerCase()) ||
+         (inv.inviteeId && collab.id && inv.inviteeId === collab.id))
+      );
+
+      let actionHtml = '';
+      if (isAlreadyMember) {
+        actionHtml = `<span class="badge badge-success" style="font-size: 0.75rem;">Already Added</span>`;
+      } else if (isPendingInvite) {
+        actionHtml = `<span class="badge badge-requested" title="Invitation request sent, waiting for collaborator acceptance">Requested</span>`;
+      } else {
+        actionHtml = `<button class="btn btn-secondary btn-xs" onclick="window.App.addPastCollaborator('${collab.id}')">+ Add to Project</button>`;
+      }
 
       html += `
         <div class="collaborator-item">
@@ -7541,10 +7555,7 @@
             </div>
           </div>
           <div>
-            ${isAlreadyMember
-              ? `<span class="badge badge-success" style="font-size: 0.75rem;">Already Added</span>`
-              : `<button class="btn btn-secondary btn-xs" onclick="window.App.addPastCollaborator('${collab.id}')">+ Add to Project</button>`
-            }
+            ${actionHtml}
           </div>
         </div>
       `;
