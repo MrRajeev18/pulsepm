@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=3.9">
+  <link rel="stylesheet" href="styles.css?v=4.0">
 </head>
 <body>
   <div id="app" class="app-root">
@@ -720,110 +720,161 @@
 
     <!-- MODAL 1: CREATE PROJECT -->
     <div id="modal-create-project" class="modal-backdrop">
-      <div class="modal-dialog">
+      <div class="modal-dialog modal-project-form">
         <div class="modal-header">
-          <div>
-            <h3>Create New Project</h3>
-            <p class="modal-subtitle">Start a new project group with milestones, tasks, and team access.</p>
+          <div class="modal-header-with-icon">
+            <div class="modal-title-icon-badge" style="background: linear-gradient(135deg, rgba(37, 99, 235, 0.12) 0%, rgba(79, 70, 229, 0.14) 100%); border-color: rgba(37, 99, 235, 0.25); color: var(--primary);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </div>
+            <div class="modal-title-group">
+              <div class="modal-title-row">
+                <h3 class="modal-title">Create New Project</h3>
+                <span class="badge-creator-tag" style="font-size: 0.72rem; padding: 2px 8px; background: rgba(16, 185, 129, 0.1); color: #059669; border: 1px solid rgba(16, 185, 129, 0.25);">✨ New Space</span>
+              </div>
+              <p class="modal-subtitle">Set up your workspace with milestones, team access, and governance policies.</p>
+            </div>
           </div>
-          <button class="modal-close-btn" onclick="window.App.closeModal('modal-create-project');">✕</button>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-create-project');" title="Close">✕</button>
         </div>
         <form id="form-create-project" onsubmit="event.preventDefault(); window.App.handleCreateProject();">
           <div class="modal-body">
-            <div class="form-group">
-              <label for="project-name-input">Project Name <span class="required">*</span></label>
-              <input type="text" id="project-name-input" placeholder="e.g. NextGen Web Portal, Brand Redesign" required>
-            </div>
 
-            <div class="form-group">
-              <label for="project-group-input">Project Group / Category <span class="required">*</span></label>
-              <input type="text" id="project-group-input" list="project-group-suggestions" placeholder="e.g. Engineering & Tech, Marketing & Growth, Design..." required autocomplete="off">
-              <datalist id="project-group-suggestions">
-                <option value="Engineering & Tech"></option>
-                <option value="Product & Design"></option>
-                <option value="Marketing & Growth"></option>
-                <option value="Operations & Legal"></option>
-                <option value="Client Delivery"></option>
-              </datalist>
-            </div>
-
-            <div class="form-group">
-              <label for="project-desc-input">Description <span class="required">*</span></label>
-              <textarea id="project-desc-input" rows="3" placeholder="Briefly summarize the goal, scope, and key deliverables..." required></textarea>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group col-6">
-                <label for="project-start-date">Start Date <span class="required">*</span></label>
-                <input type="date" id="project-start-date" required>
+            <!-- CARD 1: GENERAL INFORMATION -->
+            <div class="project-form-card">
+              <div class="project-form-card-header">
+                <span class="project-form-card-title"><span class="card-title-icon">📋</span> General Information</span>
               </div>
-              <div class="form-group col-6">
-                <label for="project-deadline">Deadline <span class="required">*</span></label>
-                <input type="date" id="project-deadline" required>
+              <div class="form-row">
+                <div class="form-group col-6">
+                  <label for="project-name-input">Project Name <span class="required">*</span></label>
+                  <input type="text" id="project-name-input" class="form-control" placeholder="e.g. NextGen Web Portal, Brand Redesign" required maxlength="60">
+                </div>
+                <div class="form-group col-6">
+                  <label for="project-group-input">Project Group / Category <span class="required">*</span></label>
+                  <input type="text" id="project-group-input" list="project-group-suggestions" class="form-control" placeholder="e.g. Engineering & Tech, Marketing..." required autocomplete="off">
+                  <datalist id="project-group-suggestions">
+                    <option value="Engineering & Tech"></option>
+                    <option value="Product & Design"></option>
+                    <option value="Marketing & Growth"></option>
+                    <option value="Operations & Legal"></option>
+                    <option value="Client Delivery"></option>
+                    <option value="Startup"></option>
+                  </datalist>
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="project-desc-input">Description <span class="required">*</span></label>
+                <textarea id="project-desc-input" rows="2" class="form-control" placeholder="Briefly summarize the goal, scope, and key deliverables..." required></textarea>
               </div>
             </div>
 
-            <!-- TASK ASSIGNMENT / ALLOCATION PERMISSION SETTING (4 OPTIONS) -->
-            <div class="form-group">
-              <label for="project-assign-permission-select">Task Allocation Permission <span class="required">*</span></label>
-              <select id="project-assign-permission-select" onchange="window.App.toggleSpecialAssignerField(this.value)" required>
-                <option value="admin_only">1. Only Admin (Only creator of the project can assign)</option>
-                <option value="admin_and_self">2. Admin + Themself (Creator can assign to all & members can assign to themself)</option>
-                <option value="specific_members">3. Selected member (Admin and Selected members can assign)</option>
-                <option value="anyone" selected>4. Everyone (Everyone can assign task to each other)</option>
-              </select>
-              <small class="field-hint">💡 Control who is authorized to allocate and assign deliverables in this project.</small>
-            </div>
-
-            <div id="special-assigners-container" class="form-group" style="display: none;">
-              <label>Select Specific Members Who Can Assign Tasks</label>
-              <p class="field-hint" style="margin-bottom: 8px;">Check the specific team members authorized to assign tasks to other colleagues:</p>
-              <div id="create-project-special-assigners-list" class="special-assigners-select-list">
-                <!-- Dynamically rendered by JS -->
+            <!-- CARD 2: TIMELINE & SCHEDULE -->
+            <div class="project-form-card">
+              <div class="project-form-card-header">
+                <span class="project-form-card-title"><span class="card-title-icon">🗓️</span> Timeline & Schedule</span>
+              </div>
+              <div class="form-row">
+                <div class="form-group col-6">
+                  <label for="project-start-date">Start Date <span class="required">*</span></label>
+                  <input type="date" id="project-start-date" class="form-control" required>
+                  <small class="field-hint">Project launch date.</small>
+                </div>
+                <div class="form-group col-6">
+                  <label for="project-deadline">Target Deadline <span class="required">*</span></label>
+                  <input type="date" id="project-deadline" class="form-control" required>
+                  <small class="field-hint">Target completion deadline.</small>
+                </div>
               </div>
             </div>
 
-            <!-- MEMBER INVITATION PERMISSION SETTING (3 OPTIONS) -->
-            <div class="form-group" style="margin-top: 14px;">
-              <label for="project-invite-permission-select">Who Can Invite Members? <span class="required">*</span></label>
-              <select id="project-invite-permission-select" onchange="window.App.toggleSpecialInviterField(this.value)" required>
-                <option value="admin_only">1. Only Admin (Only creator of the project can invite)</option>
-                <option value="specific_members">2. Selected member (Admin and Selected members can invite)</option>
-                <option value="anyone" selected>3. Everyone (Everyone can invite members)</option>
-              </select>
-              <small class="field-hint">💡 Control who is authorized to invite new members or collaborators to this project.</small>
-            </div>
-
-            <div id="special-inviters-container" class="form-group" style="display: none;">
-              <label>Select Specific Members Who Can Invite Members</label>
-              <p class="field-hint" style="margin-bottom: 8px;">Check the specific team members authorized to invite new members to this project:</p>
-              <div id="create-project-special-inviters-list" class="special-assigners-select-list">
-                <!-- Dynamically rendered by JS -->
+            <!-- CARD 3: GOVERNANCE & ACCESS CONTROL -->
+            <div class="project-form-card project-form-governance-card">
+              <div class="project-form-card-header">
+                <span class="project-form-card-title"><span class="card-title-icon">🛡️</span> Governance & Permissions</span>
+                <span class="governance-shield-badge">Access Control</span>
               </div>
-            </div>
 
-            <!-- TEAM MEMBER RANKINGS VISIBILITY SETTING (Admin, Everyone, Selected Member) -->
-            <div class="form-group" style="margin-top: 14px;">
-              <label for="project-rankings-visibility-select">Who can see "Team Member Rankings" <span class="required">*</span></label>
-              <select id="project-rankings-visibility-select" onchange="window.App.toggleCreateRankingsViewerField(this.value)" required>
-                <option value="everyone" selected>Everyone</option>
-                <option value="admin">Admin</option>
-                <option value="selected">Selected member</option>
-              </select>
-              <small class="field-hint">💡 Control who has permission to view member rankings and the performance leaderboard.</small>
-            </div>
-
-            <div id="create-rankings-viewers-container" class="form-group" style="display: none;">
-              <label>Select Specific Members Who Can View Rankings</label>
-              <p class="field-hint" style="margin-bottom: 8px;">Check the specific team members authorized to view the leaderboard:</p>
-              <div id="create-project-rankings-viewers-list" class="special-assigners-select-list">
-                <!-- Dynamically rendered by JS -->
+              <!-- Rule 1: Task Allocation -->
+              <div class="governance-rule-box">
+                <div class="governance-rule-top">
+                  <div class="governance-rule-title-wrap">
+                    <h5 class="governance-rule-title">🎯 Task Allocation Permission <span class="required">*</span></h5>
+                    <p class="governance-rule-subtitle">Specify who is authorized to create and assign tasks to others.</p>
+                  </div>
+                </div>
+                <select id="project-assign-permission-select" class="project-select-modern" onchange="window.App.toggleSpecialAssignerField(this.value)" required>
+                  <option value="admin_only">1. Only Admin (Only creator of the project can assign)</option>
+                  <option value="admin_and_self">2. Admin + Themself (Creator can assign to all & members can assign to themself)</option>
+                  <option value="specific_members">3. Selected member (Admin and Selected members can assign)</option>
+                  <option value="anyone" selected>4. Everyone (Everyone can assign task to each other)</option>
+                </select>
+                <div id="special-assigners-container" class="special-members-dropdown-box" style="display: none;">
+                  <label>⭐ Select Specific Members Who Can Assign Tasks</label>
+                  <p class="field-hint">Check the specific team members authorized to assign tasks to other colleagues:</p>
+                  <div id="create-project-special-assigners-list" class="special-assigners-select-list" style="max-height: 150px; overflow-y: auto;">
+                    <!-- Dynamically rendered by JS -->
+                  </div>
+                </div>
               </div>
+
+              <!-- Rule 2: Member Invitation -->
+              <div class="governance-rule-box">
+                <div class="governance-rule-top">
+                  <div class="governance-rule-title-wrap">
+                    <h5 class="governance-rule-title">✉️ Who Can Invite Members? <span class="required">*</span></h5>
+                    <p class="governance-rule-subtitle">Control who is authorized to invite new members or collaborators.</p>
+                  </div>
+                </div>
+                <select id="project-invite-permission-select" class="project-select-modern" onchange="window.App.toggleSpecialInviterField(this.value)" required>
+                  <option value="admin_only">1. Only Admin (Only creator of the project can invite)</option>
+                  <option value="specific_members">2. Selected member (Admin and Selected members can invite)</option>
+                  <option value="anyone" selected>3. Everyone (Everyone can invite members)</option>
+                </select>
+                <div id="special-inviters-container" class="special-members-dropdown-box" style="display: none;">
+                  <label>✉️ Select Specific Members Who Can Invite Members</label>
+                  <p class="field-hint">Check the specific team members authorized to invite new members to this project:</p>
+                  <div id="create-project-special-inviters-list" class="special-assigners-select-list" style="max-height: 150px; overflow-y: auto;">
+                    <!-- Dynamically rendered by JS -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- Rule 3: Rankings Visibility -->
+              <div class="governance-rule-box">
+                <div class="governance-rule-top">
+                  <div class="governance-rule-title-wrap">
+                    <h5 class="governance-rule-title">🏆 Who can see "Team Member Rankings" <span class="required">*</span></h5>
+                    <p class="governance-rule-subtitle">Control who has permission to view member rankings and the performance leaderboard.</p>
+                  </div>
+                </div>
+                <select id="project-rankings-visibility-select" class="project-select-modern" onchange="window.App.toggleCreateRankingsViewerField(this.value)" required>
+                  <option value="everyone" selected>Everyone</option>
+                  <option value="admin">Admin</option>
+                  <option value="selected">Selected member</option>
+                </select>
+                <div id="create-rankings-viewers-container" class="special-members-dropdown-box" style="display: none;">
+                  <label>👁️ Select Specific Members Who Can View Rankings</label>
+                  <p class="field-hint">Check the specific team members authorized to view the leaderboard:</p>
+                  <div id="create-project-rankings-viewers-list" class="special-assigners-select-list" style="max-height: 150px; overflow-y: auto;">
+                    <!-- Dynamically rendered by JS -->
+                  </div>
+                </div>
+              </div>
+
             </div>
+
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-ghost" onclick="window.App.closeModal('modal-create-project');">Cancel</button>
-            <button type="submit" class="btn btn-primary">Create Project Group</button>
+            <button type="submit" class="btn btn-primary btn-save-project">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right: 4px;">
+                <path d="M12 5v14M5 12h14"></path>
+              </svg>
+              <span>Create Project Group</span>
+            </button>
           </div>
         </form>
       </div>
@@ -1314,108 +1365,160 @@
 
     <!-- MODAL: EDIT PROJECT DETAIL (Creator Only) -->
     <div id="modal-edit-project-detail" class="modal-backdrop">
-      <div class="modal-dialog modal-md">
+      <div class="modal-dialog modal-project-form">
         <div class="modal-header">
-          <div>
-            <h3>Edit Project Details</h3>
-            <p class="modal-subtitle">Modify project name, category, description, and permissions. (Creator only)</p>
+          <div class="modal-header-with-icon">
+            <div class="modal-title-icon-badge">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+            </div>
+            <div class="modal-title-group">
+              <div class="modal-title-row">
+                <h3 class="modal-title">Edit Project Details</h3>
+                <span class="badge-creator-tag" style="font-size: 0.72rem; padding: 2px 8px;">👑 Creator Only</span>
+              </div>
+              <p class="modal-subtitle">Modify project metadata, target completion deadline, and collaboration policies.</p>
+            </div>
           </div>
-          <button class="modal-close-btn" onclick="window.App.closeModal('modal-edit-project-detail');">✕</button>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-edit-project-detail');" title="Close">✕</button>
         </div>
         <form id="form-edit-project-detail" onsubmit="window.App.handleSaveProjectDetail(event);">
           <input type="hidden" id="edit-project-id">
-          <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
-            <div class="form-group">
-              <label for="edit-project-name">Project Name <span class="required">*</span></label>
-              <input type="text" id="edit-project-name" class="form-control" placeholder="Project Name" required maxlength="60">
-            </div>
+          <div class="modal-body">
 
-            <div class="form-group">
-              <label for="edit-project-group">Project Group / Category <span class="required">*</span></label>
-              <input type="text" id="edit-project-group" list="edit-project-group-suggestions" class="form-control" placeholder="e.g. Engineering & Tech, Marketing..." required autocomplete="off">
-              <datalist id="edit-project-group-suggestions">
-                <option value="Engineering & Tech"></option>
-                <option value="Product & Design"></option>
-                <option value="Marketing & Growth"></option>
-                <option value="Operations & Legal"></option>
-                <option value="Client Delivery"></option>
-                <option value="Startup"></option>
-              </datalist>
-            </div>
-
-            <div class="form-group">
-              <label for="edit-project-desc">Description <span class="required">*</span></label>
-              <textarea id="edit-project-desc" rows="3" class="form-control" placeholder="Project summary and scope..." required></textarea>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group col-6">
-                <label for="edit-project-start-date">Start Date <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">(Locked)</span></label>
-                <input type="date" id="edit-project-start-date" class="form-control" readonly tabindex="-1" style="cursor: not-allowed; background: var(--bg-surface); opacity: 0.85;" title="Start date cannot be modified after project creation">
-                <small class="field-hint">Start date is fixed and cannot be edited.</small>
+            <!-- CARD 1: GENERAL INFORMATION -->
+            <div class="project-form-card">
+              <div class="project-form-card-header">
+                <span class="project-form-card-title"><span class="card-title-icon">📋</span> General Information</span>
               </div>
-              <div class="form-group col-6">
-                <label for="edit-project-end-date">End Date <span class="required">*</span></label>
-                <input type="date" id="edit-project-end-date" class="form-control" required title="Adjust project target completion deadline">
-                <small class="field-hint">Editable project completion deadline.</small>
+              <div class="form-row">
+                <div class="form-group col-6">
+                  <label for="edit-project-name">Project Name <span class="required">*</span></label>
+                  <input type="text" id="edit-project-name" class="form-control" placeholder="e.g. Mobile App Redesign" required maxlength="60">
+                </div>
+                <div class="form-group col-6">
+                  <label for="edit-project-group">Category / Group <span class="required">*</span></label>
+                  <input type="text" id="edit-project-group" list="edit-project-group-suggestions" class="form-control" placeholder="e.g. Engineering & Tech..." required autocomplete="off">
+                  <datalist id="edit-project-group-suggestions">
+                    <option value="Engineering & Tech"></option>
+                    <option value="Product & Design"></option>
+                    <option value="Marketing & Growth"></option>
+                    <option value="Operations & Legal"></option>
+                    <option value="Client Delivery"></option>
+                    <option value="Startup"></option>
+                  </datalist>
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="edit-project-desc">Description <span class="required">*</span></label>
+                <textarea id="edit-project-desc" rows="2" class="form-control" placeholder="Project summary, key goals, and scope..." required></textarea>
               </div>
             </div>
 
-            <div class="form-group">
-              <label for="edit-project-assign-policy">Who can assign tasks? (Task Allocation) <span class="required">*</span></label>
-              <select id="edit-project-assign-policy" class="form-control" onchange="window.App.toggleEditProjectAssignPolicy(this.value);" required>
-                <option value="admin_only">1. Only Admin (Only creator of the project can assign)</option>
-                <option value="admin_and_self">2. Admin + Themself (Creator can assign to all & members can assign to themself)</option>
-                <option value="specific_members">3. Selected member (Admin and Selected members can assign)</option>
-                <option value="anyone">4. Everyone (Everyone can assign task to each other)</option>
-              </select>
-            </div>
-
-            <div id="edit-project-special-assigners-container" class="form-group" style="display: none; background: var(--bg-surface); padding: 12px; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
-              <label style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 6px;">Select Specific Members Who Can Assign Tasks</label>
-              <p class="field-hint" style="margin-bottom: 8px;">Check the team members authorized to assign tasks to colleagues:</p>
-              <div id="edit-project-special-assigners-list" class="special-assigners-select-list" style="max-height: 160px; overflow-y: auto;">
-                <!-- Populated dynamically -->
+            <!-- CARD 2: SCHEDULE & TIMELINE -->
+            <div class="project-form-card">
+              <div class="project-form-card-header">
+                <span class="project-form-card-title"><span class="card-title-icon">🗓️</span> Timeline & Schedule</span>
+              </div>
+              <div class="form-row">
+                <div class="form-group col-6">
+                  <label for="edit-project-start-date">Start Date <span class="timeline-locked-pill">🔒 Fixed</span></label>
+                  <input type="date" id="edit-project-start-date" class="form-control" readonly tabindex="-1" style="cursor: not-allowed; background: var(--bg-subtle); opacity: 0.85;" title="Start date cannot be modified after project creation">
+                  <small class="field-hint">Fixed project inception date.</small>
+                </div>
+                <div class="form-group col-6">
+                  <label for="edit-project-end-date">Target End Date <span class="required">*</span></label>
+                  <input type="date" id="edit-project-end-date" class="form-control" required title="Adjust project target completion deadline">
+                  <small class="field-hint">Editable project completion deadline.</small>
+                </div>
               </div>
             </div>
 
-            <div class="form-group">
-              <label for="edit-project-invite-policy">Who can invite members? (Member Invitation) <span class="required">*</span></label>
-              <select id="edit-project-invite-policy" class="form-control" onchange="window.App.toggleEditProjectInvitePolicy(this.value);" required>
-                <option value="admin_only">1. Only Admin (Only creator of the project can invite)</option>
-                <option value="specific_members">2. Selected member (Admin and Selected members can invite)</option>
-                <option value="anyone">3. Everyone (Everyone can invite members)</option>
-              </select>
-            </div>
-
-            <div id="edit-project-special-inviters-container" class="form-group" style="display: none; background: var(--bg-surface); padding: 12px; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
-              <label style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 6px;">Select Specific Members Who Can Invite Members</label>
-              <p class="field-hint" style="margin-bottom: 8px;">Check the team members authorized to invite new members to this project:</p>
-              <div id="edit-project-special-inviters-list" class="special-assigners-select-list" style="max-height: 160px; overflow-y: auto;">
-                <!-- Populated dynamically -->
+            <!-- CARD 3: GOVERNANCE & ACCESS CONTROL -->
+            <div class="project-form-card project-form-governance-card">
+              <div class="project-form-card-header">
+                <span class="project-form-card-title"><span class="card-title-icon">🛡️</span> Governance & Permissions</span>
+                <span class="governance-shield-badge">Access Control</span>
               </div>
-            </div>
 
-            <div class="form-group">
-              <label for="edit-project-rankings-vis-select">Who can see "Team Member Rankings"? <span class="required">*</span></label>
-              <select id="edit-project-rankings-vis-select" class="form-control" onchange="window.App.toggleEditProjectRankingsVis(this.value);" required>
-                <option value="everyone">Everyone (All project members)</option>
-                <option value="admin">Admin (Project Owner & Admins only)</option>
-                <option value="selected">Selected member (Admins + chosen members)</option>
-              </select>
-            </div>
-
-            <div id="edit-project-rankings-viewers-container" class="form-group" style="display: none; background: var(--bg-surface); padding: 12px; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
-              <label style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 6px;">Select Specific Members Who Can View Rankings</label>
-              <p class="field-hint" style="margin-bottom: 8px;">Check the team members authorized to view the leaderboard:</p>
-              <div id="edit-project-rankings-viewers-list" class="special-assigners-select-list" style="max-height: 160px; overflow-y: auto;">
-                <!-- Populated dynamically -->
+              <!-- Rule 1: Task Allocation -->
+              <div class="governance-rule-box">
+                <div class="governance-rule-top">
+                  <div class="governance-rule-title-wrap">
+                    <h5 class="governance-rule-title">🎯 Task Allocation Permission <span class="required">*</span></h5>
+                    <p class="governance-rule-subtitle">Specify who is authorized to create and assign tasks to others.</p>
+                  </div>
+                </div>
+                <select id="edit-project-assign-policy" class="project-select-modern" onchange="window.App.toggleEditProjectAssignPolicy(this.value);" required>
+                  <option value="admin_only">1. Only Admin (Only creator of the project can assign)</option>
+                  <option value="admin_and_self">2. Admin + Themself (Creator can assign to all & members can assign to themself)</option>
+                  <option value="specific_members">3. Selected member (Admin and Selected members can assign)</option>
+                  <option value="anyone">4. Everyone (Everyone can assign task to each other)</option>
+                </select>
+                <div id="edit-project-special-assigners-container" class="special-members-dropdown-box" style="display: none;">
+                  <label>⭐ Select Specific Assigners</label>
+                  <p class="field-hint">Check team members authorized to assign deliverables to colleagues:</p>
+                  <div id="edit-project-special-assigners-list" class="special-assigners-select-list" style="max-height: 150px; overflow-y: auto;">
+                    <!-- Populated dynamically -->
+                  </div>
+                </div>
               </div>
+
+              <!-- Rule 2: Member Invitation -->
+              <div class="governance-rule-box">
+                <div class="governance-rule-top">
+                  <div class="governance-rule-title-wrap">
+                    <h5 class="governance-rule-title">✉️ Member Invitation Policy <span class="required">*</span></h5>
+                    <p class="governance-rule-subtitle">Control who has authority to send invitations and add collaborators.</p>
+                  </div>
+                </div>
+                <select id="edit-project-invite-policy" class="project-select-modern" onchange="window.App.toggleEditProjectInvitePolicy(this.value);" required>
+                  <option value="admin_only">1. Only Admin (Only creator of the project can invite)</option>
+                  <option value="specific_members">2. Selected member (Admin and Selected members can invite)</option>
+                  <option value="anyone">3. Everyone (Everyone can invite members)</option>
+                </select>
+                <div id="edit-project-special-inviters-container" class="special-members-dropdown-box" style="display: none;">
+                  <label>✉️ Select Specific Inviters</label>
+                  <p class="field-hint">Check team members authorized to invite new collaborators to this project:</p>
+                  <div id="edit-project-special-inviters-list" class="special-assigners-select-list" style="max-height: 150px; overflow-y: auto;">
+                    <!-- Populated dynamically -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- Rule 3: Rankings Visibility -->
+              <div class="governance-rule-box">
+                <div class="governance-rule-top">
+                  <div class="governance-rule-title-wrap">
+                    <h5 class="governance-rule-title">🏆 Team Member Rankings Visibility <span class="required">*</span></h5>
+                    <p class="governance-rule-subtitle">Configure who has permission to view the performance leaderboard.</p>
+                  </div>
+                </div>
+                <select id="edit-project-rankings-vis-select" class="project-select-modern" onchange="window.App.toggleEditProjectRankingsVis(this.value);" required>
+                  <option value="everyone">Everyone (All project members)</option>
+                  <option value="admin">Admin (Project Owner & Admins only)</option>
+                  <option value="selected">Selected member (Admins + chosen members)</option>
+                </select>
+                <div id="edit-project-rankings-viewers-container" class="special-members-dropdown-box" style="display: none;">
+                  <label>👁️ Select Specific Viewers</label>
+                  <p class="field-hint">Check team members authorized to view the leaderboard:</p>
+                  <div id="edit-project-rankings-viewers-list" class="special-assigners-select-list" style="max-height: 150px; overflow-y: auto;">
+                    <!-- Populated dynamically -->
+                  </div>
+                </div>
+              </div>
+
             </div>
+
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" onclick="window.App.closeModal('modal-edit-project-detail');">Cancel</button>
-            <button type="submit" class="btn btn-primary" id="btn-save-edit-project">Save Project Details</button>
+            <button type="submit" class="btn btn-primary btn-save-project" id="btn-save-edit-project">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Save Project Details</span>
+            </button>
           </div>
         </form>
       </div>
@@ -1997,6 +2100,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="app.js?v=4.1"></script>
+  <script src="app.js?v=4.2"></script>
 </body>
 </html>
