@@ -3775,23 +3775,41 @@ input:checked + .slider:before {
 .task-policy-banner {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: var(--radius-md);
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 10px;
   font-size: 0.8125rem;
+  line-height: 1.45;
   margin-bottom: 14px;
+  transition: all 0.2s ease;
+}
+
+.task-policy-banner svg {
+  flex-shrink: 0;
 }
 
 .task-policy-banner.open {
-  background: var(--accent-emerald-light);
-  color: var(--accent-emerald);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.04) 100%);
+  color: #065f46;
   border: 1px solid rgba(16, 185, 129, 0.25);
 }
 
 .task-policy-banner.restricted {
-  background: var(--accent-amber-light);
-  color: var(--accent-amber);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(217, 119, 6, 0.04) 100%);
+  color: #92400e;
   border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+body.dark .task-policy-banner.open {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+body.dark .task-policy-banner.restricted {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.3);
 }
 
 .special-assigners-select-list {

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=4.2">
+  <link rel="stylesheet" href="styles.css?v=4.3">
 </head>
 <body>
   <div id="app" class="app-root">
@@ -1018,57 +1018,94 @@
 
     <!-- MODAL 3: CREATE / ASSIGN TASK -->
     <div id="modal-create-task" class="modal-backdrop">
-      <div class="modal-dialog">
+      <div class="modal-dialog modal-project-form" style="max-width: 600px;">
         <div class="modal-header">
-          <div>
-            <h3>Add New Task</h3>
-            <p class="modal-subtitle">Define deliverables and assign directly to a project member.</p>
+          <div class="modal-header-with-icon">
+            <div class="modal-title-icon-badge" style="background: linear-gradient(135deg, rgba(79, 70, 229, 0.12) 0%, rgba(99, 102, 241, 0.16) 100%); border-color: rgba(79, 70, 229, 0.25); color: var(--primary);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M12 5v14M5 12h14"></path>
+              </svg>
+            </div>
+            <div class="modal-title-group">
+              <div class="modal-title-row">
+                <h3 class="modal-title">Add New Task</h3>
+                <span class="badge-creator-tag" style="font-size: 0.72rem; padding: 2px 8px; background: rgba(79, 70, 229, 0.1); color: var(--primary); border: 1px solid rgba(79, 70, 229, 0.25);">✨ Deliverable</span>
+              </div>
+              <p class="modal-subtitle">Define deliverables, milestones, and assign directly to a project member.</p>
+            </div>
           </div>
-          <button class="modal-close-btn" onclick="window.App.closeModal('modal-create-task');">✕</button>
+          <button class="modal-close-btn" onclick="window.App.closeModal('modal-create-task');" title="Close">✕</button>
         </div>
         <form id="form-create-task" onsubmit="event.preventDefault(); window.App.handleCreateTask();">
           <div class="modal-body">
-            <div class="form-group">
-              <label for="task-title-input">Task Title <span class="required">*</span></label>
-              <input type="text" id="task-title-input" placeholder="e.g. Implement OAuth2 tokens, Design mobile checkout" required>
+            
+            <!-- CARD 1: TASK OVERVIEW -->
+            <div class="project-form-card">
+              <div class="project-form-card-header">
+                <span class="project-form-card-title"><span class="card-title-icon">📋</span> Task Overview</span>
+              </div>
+              <div class="form-group">
+                <label for="task-title-input">Task Title <span class="required">*</span></label>
+                <input type="text" id="task-title-input" class="form-control" style="font-size: 0.95rem; font-weight: 500;" placeholder="e.g. Implement OAuth2 tokens, Design mobile checkout" required maxlength="120">
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="task-desc-input">Task Description <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 400;">(Optional)</span></label>
+                <textarea id="task-desc-input" rows="2" class="form-control" placeholder="Provide context, acceptance criteria or links..."></textarea>
+              </div>
             </div>
 
-            <div class="form-group">
-              <label for="task-desc-input">Task Description</label>
-              <textarea id="task-desc-input" rows="2" placeholder="Provide context, acceptance criteria or links..."></textarea>
+            <!-- CARD 2: SCHEDULE & PRIORITY -->
+            <div class="project-form-card">
+              <div class="project-form-card-header">
+                <span class="project-form-card-title"><span class="card-title-icon">⚡</span> Priority & Schedule</span>
+              </div>
+              <div class="form-row">
+                <div class="form-group col-6">
+                  <label for="task-priority-select">Priority <span class="required">*</span></label>
+                  <select id="task-priority-select" class="project-select-modern" required>
+                    <option value="Medium">Medium Priority</option>
+                    <option value="High">🔥 High Priority</option>
+                    <option value="Urgent">⚡ Urgent</option>
+                    <option value="Low">🌱 Low Priority</option>
+                  </select>
+                </div>
+                <div class="form-group col-6">
+                  <label for="task-due-date">Due Date <span class="required">*</span></label>
+                  <input type="date" id="task-due-date" class="form-control" required>
+                </div>
+              </div>
             </div>
 
-            <div class="form-row">
-              <div class="form-group col-6">
-                <label for="task-priority-select">Priority <span class="required">*</span></label>
-                <select id="task-priority-select" required>
-                  <option value="Medium">Medium</option>
-                  <option value="High">High Priority</option>
-                  <option value="Urgent">🔥 Urgent</option>
-                  <option value="Low">Low</option>
+            <!-- CARD 3: ASSIGNMENT & GOVERNANCE -->
+            <div class="project-form-card project-form-governance-card" style="margin-bottom: 0;">
+              <div class="project-form-card-header">
+                <span class="project-form-card-title"><span class="card-title-icon">👤</span> Assignee Allocation</span>
+                <span class="governance-shield-badge">Team Access</span>
+              </div>
+
+              <!-- Authority Notice Banner -->
+              <div id="task-assign-policy-banner" class="task-policy-banner">
+                <!-- Rendered dynamically by JS -->
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="task-assignee-select">Assign To Member <span class="required">*</span></label>
+                <select id="task-assignee-select" class="project-select-modern" required>
+                  <!-- Populated with current project members -->
                 </select>
-              </div>
-              <div class="form-group col-6">
-                <label for="task-due-date">Due Date <span class="required">*</span></label>
-                <input type="date" id="task-due-date" required>
+                <small id="task-assignee-hint" class="field-hint" style="margin-top: 6px;"></small>
               </div>
             </div>
 
-            <div id="task-assign-policy-banner" class="task-policy-banner">
-              <!-- Rendered dynamically by JS -->
-            </div>
-
-            <div class="form-group">
-              <label for="task-assignee-select">Assign To Member <span class="required">*</span></label>
-              <select id="task-assignee-select" required>
-                <!-- Populated with current project members -->
-              </select>
-              <small id="task-assignee-hint" class="field-hint"></small>
-            </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-ghost" onclick="window.App.closeModal('modal-create-task');">Cancel</button>
-            <button type="submit" class="btn btn-primary">Create & Assign Task</button>
+            <button type="submit" class="btn btn-primary btn-save-project">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Create & Assign Task</span>
+            </button>
           </div>
         </form>
       </div>
@@ -2429,6 +2466,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="app.js?v=4.4"></script>
+  <script src="app.js?v=4.5"></script>
 </body>
 </html>
