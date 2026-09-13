@@ -5635,12 +5635,18 @@
     const container = document.getElementById('project-team-cards-list');
     if (!container) return;
 
+    const isUserAdmin = isProjectAdmin(project, state.currentUser) || isProjectOwner(project, state.currentUser);
+
     const subtitleEl = document.getElementById('team-tab-subtitle');
+    const allPendingInvites = (project.pendingInvitations || []).filter(i => i.status === 'pending' || !i.status);
     if (subtitleEl) {
-      subtitleEl.innerText = `${project.members.length} member${project.members.length === 1 ? '' : 's'} collaborating on this project`;
+      const memberCountText = `${project.members.length} member${project.members.length === 1 ? '' : 's'}`;
+      const invitedCountText = allPendingInvites.length > 0 ? ` · ${allPendingInvites.length} invited` : '';
+      subtitleEl.innerText = `${memberCountText}${invitedCountText} collaborating on this project`;
     }
 
     let members = project.members || [];
+    let pendingInvites = allPendingInvites;
     if (searchQuery && searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       members = members.filter(m => 
@@ -5648,9 +5654,14 @@
         (m.email && m.email.toLowerCase().includes(q)) ||
         (m.role && m.role.toLowerCase().includes(q))
       );
+      pendingInvites = pendingInvites.filter(i => 
+        (i.inviteeName && i.inviteeName.toLowerCase().includes(q)) ||
+        (i.inviteeEmail && i.inviteeEmail.toLowerCase().includes(q)) ||
+        (i.role && i.role.toLowerCase().includes(q))
+      );
     }
 
-    if (members.length === 0) {
+    if (members.length === 0 && pendingInvites.length === 0) {
       container.innerHTML = `
         <div class="team-empty-state">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -5665,8 +5676,6 @@
       `;
       return;
     }
-
-    const isUserAdmin = isProjectAdmin(project, state.currentUser);
 
     let html = '';
     members.forEach(m => {
@@ -5776,6 +5785,67 @@
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               <span>Contact</span>
             </button>
+            ${actionButtonHtml}
+          </div>
+        </div>
+      `;
+    });
+
+    // Render Invited Members in the Team section
+    pendingInvites.forEach(inv => {
+      const inviteeName = inv.inviteeName || 'Invited User';
+      const inviteeAvatar = inv.avatar || computeAvatarInitials(inviteeName);
+      const inviteeEmail = inv.inviteeEmail || '';
+      const invitedBy = inv.invitedBy || 'Admin';
+
+      let actionButtonHtml = '';
+      if (isUserAdmin) {
+        actionButtonHtml = `
+          <button type="button" class="btn btn-danger btn-xs btn-remove-member"
+                  onclick="event.stopPropagation(); window.App.cancelProjectInvitation('${project.id}', '${inv.id}')"
+                  title="Withdraw invitation sent to ${escapeHtml(inviteeName)}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+            <span>Withdraw</span>
+          </button>
+        `;
+      } else {
+        actionButtonHtml = `<span class="badge badge-requested" style="font-size:0.75rem;">Awaiting Acceptance</span>`;
+      }
+
+      html += `
+        <div class="team-member-card team-member-card-invited" title="${escapeHtml(inviteeName)} has been invited as ${escapeHtml(inv.role || 'Member')} (awaiting acceptance)">
+          <div class="team-card-top">
+            <div class="team-card-avatar" style="background: rgba(245, 158, 11, 0.15); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.35);">
+              ${renderAvatarInnerHtml(inviteeAvatar, inviteeName)}
+            </div>
+            <div class="team-card-identity">
+              <div class="team-card-name-row">
+                <strong class="team-card-name">${escapeHtml(inviteeName)}</strong>
+                <span class="badge badge-requested" style="font-size: 0.68rem;">Invited</span>
+              </div>
+              <span class="team-card-email">${escapeHtml(inviteeEmail)}</span>
+            </div>
+          </div>
+
+          <div class="team-card-badges">
+            <span class="team-badge-role">${escapeHtml(inv.role || 'Member')}</span>
+            <span class="badge badge-requested" style="font-size: 0.7rem;">⏳ Pending Acceptance</span>
+          </div>
+
+          <div class="team-card-metrics" style="background: rgba(245, 158, 11, 0.05); padding: 8px 12px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">
+              Invited by <strong>${escapeHtml(invitedBy)}</strong>
+            </span>
+            <span style="font-size: 0.74rem; color: var(--text-muted);">
+              ${timeAgo(inv.invitedAt || inv.id)}
+            </span>
+          </div>
+
+          <div class="team-card-actions-row">
+            <span class="text-muted" style="font-size: 0.75rem;">Invitation Pending</span>
             ${actionButtonHtml}
           </div>
         </div>
