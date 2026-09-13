@@ -5811,8 +5811,6 @@
             <span>Withdraw</span>
           </button>
         `;
-      } else {
-        actionButtonHtml = `<span class="badge badge-requested" style="font-size:0.75rem;">Awaiting Acceptance</span>`;
       }
 
       html += `
@@ -5844,8 +5842,11 @@
             </span>
           </div>
 
-          <div class="team-card-actions-row">
-            <span class="text-muted" style="font-size: 0.75rem;">Invitation Pending</span>
+          <div class="team-card-actions-row" style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+            <div class="team-invited-status-pill">
+              <span class="invited-pulse-dot"></span>
+              <span>Invitation Pending</span>
+            </div>
             ${actionButtonHtml}
           </div>
         </div>
