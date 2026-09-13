@@ -536,10 +536,18 @@
       }
     }
 
+    const inviteeEmails = (project.pendingInvitations || [])
+      .map(inv => (inv.inviteeEmail || '').trim().toLowerCase())
+      .filter(Boolean);
+
+    const inviteeUids = (project.pendingInvitations || [])
+      .map(inv => (inv.inviteeId || '').toString())
+      .filter(Boolean);
+
     // Deep clone to remove non-serializable properties
     const clean = JSON.parse(JSON.stringify(project));
-    clean.memberEmails = memberEmails;
-    clean.memberUids = memberUids;
+    clean.memberEmails = Array.from(new Set([...memberEmails, ...inviteeEmails]));
+    clean.memberUids = Array.from(new Set([...memberUids, ...inviteeUids]));
     clean.updatedAt = new Date().toISOString();
 
     if (Array.isArray(clean.tasks)) {
@@ -2219,8 +2227,62 @@
     container.innerHTML = html;
   }
 
+  function renderDashboardInvitationsBanner() {
+    const bannerContainer = document.getElementById('dashboard-invitations-container');
+    if (!bannerContainer) return;
+
+    const myInvites = getMyPendingProjectInvitations();
+    if (!myInvites || myInvites.length === 0) {
+      bannerContainer.style.display = 'none';
+      bannerContainer.innerHTML = '';
+      return;
+    }
+
+    bannerContainer.style.display = 'block';
+    const cardsHtml = myInvites.map(inv => {
+      const inviterName = escapeHtml(inv.invitedByName || 'Project Admin');
+      const projName = escapeHtml(inv.projectName || 'Project');
+      const roleName = escapeHtml(inv.role || 'Member');
+      const inviteDate = inv.invitedAt ? timeAgo(inv.invitedAt) : 'Recently';
+
+      return `
+        <div class="dashboard-invitation-card">
+          <div class="inv-info">
+            <div class="inv-title">📩 Invitation to join <strong>${projName}</strong></div>
+            <div class="inv-desc">Invited as <span class="badge badge-primary" style="font-size:0.75rem;">${roleName}</span> by ${inviterName} · ${inviteDate}</div>
+          </div>
+          <div class="pending-actions-row">
+            <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); window.App.declineProjectInvitation('${inv.projectId}', '${inv.id}')" title="Decline invitation">
+              Decline
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); window.App.acceptProjectInvitation('${inv.projectId}', '${inv.id}')" title="Accept invitation and join project">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Accept & Join</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    bannerContainer.innerHTML = `
+      <div class="dashboard-invitations-banner">
+        <div class="banner-header">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+          <span>Pending Project Invitations (${myInvites.length})</span>
+        </div>
+        <div class="dashboard-invitations-list">
+          ${cardsHtml}
+        </div>
+      </div>
+    `;
+  }
+
   function renderProjectGroups() {
     renderGroupFilterPills();
+    renderDashboardInvitationsBanner();
 
     const grid = document.getElementById('project-groups-grid');
     if (!grid) return;
@@ -5471,7 +5533,105 @@
     return false;
   }
 
+  function renderProjectApprovalSections(project) {
+    const reqContainer = document.getElementById('project-join-requests-container');
+    const invContainer = document.getElementById('project-pending-invites-container');
+    if (!reqContainer && !invContainer) return;
+
+    const isUserAdmin = isProjectAdmin(project, state.currentUser) || isProjectOwner(project, state.currentUser);
+
+    // 1. Join Requests Requiring Admin Approval
+    if (reqContainer) {
+      const pendingRequests = (project.joinRequests || []).filter(r => r.status === 'pending' || !r.status);
+      if (isUserAdmin && pendingRequests.length > 0) {
+        reqContainer.style.display = 'block';
+        reqContainer.innerHTML = `
+          <div class="pending-requests-section">
+            <div class="pending-section-header">
+              <div class="pending-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/></svg>
+                <span>Join Requests Requiring Admin Approval</span>
+              </div>
+              <span class="pending-badge">${pendingRequests.length} Pending</span>
+            </div>
+            <div class="pending-requests-list">
+              ${pendingRequests.map(r => `
+                <div class="pending-request-card">
+                  <div class="pending-user-info">
+                    <div class="pending-user-avatar">
+                      ${computeAvatarInitials(r.userName || r.userEmail || 'U')}
+                    </div>
+                    <div class="pending-user-details">
+                      <div class="pending-user-name">${escapeHtml(r.userName || 'User')}</div>
+                      <div class="pending-user-meta">${escapeHtml(r.userEmail || '')} · Requested ${timeAgo(r.requestedAt || r.id)} via code <code>${escapeHtml(r.joinCodeUsed || '')}</code></div>
+                    </div>
+                  </div>
+                  <div class="pending-actions-row">
+                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); window.App.declineJoinRequest('${project.id}', '${r.id}')" title="Decline request">
+                      Decline
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); window.App.approveJoinRequest('${project.id}', '${r.id}')" title="Approve and add as Member">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      <span>Allow Entry</span>
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      } else {
+        reqContainer.style.display = 'none';
+        reqContainer.innerHTML = '';
+      }
+    }
+
+    // 2. Pending Member Invitations Sent by Admin
+    if (invContainer) {
+      const pendingInvites = (project.pendingInvitations || []).filter(inv => inv.status === 'pending' || !inv.status);
+      if (isUserAdmin && pendingInvites.length > 0) {
+        invContainer.style.display = 'block';
+        invContainer.innerHTML = `
+          <div class="pending-invitations-section">
+            <div class="pending-section-header">
+              <div class="pending-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <span>Pending Invitations (Waiting for Member Acceptance)</span>
+              </div>
+              <span class="pending-badge waiting">${pendingInvites.length} Pending</span>
+            </div>
+            <div class="pending-invitations-list">
+              ${pendingInvites.map(inv => `
+                <div class="pending-invite-card">
+                  <div class="pending-user-info">
+                    <div class="pending-user-avatar">
+                      ${computeAvatarInitials(inv.inviteeName || inv.inviteeEmail || 'M')}
+                    </div>
+                    <div class="pending-user-details">
+                      <div class="pending-user-name">${escapeHtml(inv.inviteeName || 'Invited User')} <span class="badge badge-secondary" style="font-size:0.7rem;">${escapeHtml(inv.role || 'Member')}</span></div>
+                      <div class="pending-user-meta">${escapeHtml(inv.inviteeEmail || '')} · Sent ${timeAgo(inv.invitedAt || inv.id)}</div>
+                    </div>
+                  </div>
+                  <div class="pending-actions-row">
+                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); window.App.cancelProjectInvitation('${project.id}', '${inv.id}')" title="Cancel invitation">
+                      Cancel Invite
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      } else {
+        invContainer.style.display = 'none';
+        invContainer.innerHTML = '';
+      }
+    }
+  }
+
   function renderProjectTeam(project, searchQuery = '') {
+    renderProjectApprovalSections(project);
+
     const container = document.getElementById('project-team-cards-list');
     if (!container) return;
 
@@ -6977,7 +7137,7 @@
     return (state.projects || []).find(p => p.id === state.activeProjectId) || null;
   }
 
-  function createNotification({ type, recipientId, projectId, taskId = null, message }) {
+  function createNotification({ type, recipientId = null, recipientEmail = null, projectId, taskId = null, requestId = null, invitationId = null, message }) {
     // Avoid duplicate deadline notifications for the same task
     if (type === 'deadline_near') {
       const exists = state.notifications.some(
@@ -6998,8 +7158,11 @@
       id: 'notif_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
       type,
       recipientId,
+      recipientEmail: recipientEmail ? recipientEmail.toLowerCase() : null,
       projectId,
       taskId,
+      requestId,
+      invitationId,
       message,
       read: false,
       createdAt: new Date().toISOString()
@@ -7111,8 +7274,14 @@
   }
 
   function getMyNotifications() {
-    if (!state.notifications) return [];
-    return state.notifications.filter(n => n.recipientId === state.currentUser.id);
+    if (!state.notifications || !state.currentUser) return [];
+    const uid = state.currentUser.id || state.currentUser.uid;
+    const email = getCurrentUserEmail();
+    return state.notifications.filter(n => {
+      if (uid && n.recipientId && n.recipientId === uid) return true;
+      if (email && n.recipientEmail && n.recipientEmail.toLowerCase() === email) return true;
+      return false;
+    });
   }
 
   function updateNotificationBell() {
@@ -7244,6 +7413,11 @@
                          n.type === 'project_broadcast' ? '📢' :
                          n.type === 'project_deleted' ? '⚠️' :
                          n.type === 'member_exited' ? '👋' :
+                         n.type === 'join_request' ? '🙋' :
+                         n.type === 'join_request_approved' ? '🎉' :
+                         n.type === 'join_request_declined' ? 'ℹ️' :
+                         n.type === 'project_invitation' ? '📩' :
+                         n.type === 'invitation_accepted' ? '🤝' :
                          n.type === 'chat_message' ? '💬' : '🔔';
         typeIconHtml = `<span class="notif-type-icon">${typeIcon}</span>`;
       }
@@ -7251,6 +7425,29 @@
       const mentionBadgeHtml = isAllMention
         ? `<span class="notif-mention-badge all">📢 @all</span>`
         : (isMention ? `<span class="notif-mention-badge">@mention</span>` : '');
+
+      let interactiveActionsHtml = '';
+      if (n.type === 'join_request' && n.projectId) {
+        const reqPending = project && Array.isArray(project.joinRequests) && project.joinRequests.some(r => r.id === n.requestId && (r.status === 'pending' || !r.status));
+        if (reqPending) {
+          interactiveActionsHtml = `
+            <div class="notif-actions-row">
+              <button class="btn btn-secondary btn-xs" onclick="event.stopPropagation(); window.App.declineJoinRequest('${n.projectId}', '${n.requestId}'); window.App.markNotificationRead('${n.id}');">Decline</button>
+              <button class="btn btn-primary btn-xs" onclick="event.stopPropagation(); window.App.approveJoinRequest('${n.projectId}', '${n.requestId}'); window.App.markNotificationRead('${n.id}');">Allow</button>
+            </div>
+          `;
+        }
+      } else if (n.type === 'project_invitation' && n.projectId) {
+        const invPending = project && Array.isArray(project.pendingInvitations) && project.pendingInvitations.some(i => (i.id === n.invitationId || (n.recipientEmail && i.inviteeEmail && i.inviteeEmail.toLowerCase() === n.recipientEmail.toLowerCase())) && (i.status === 'pending' || !i.status));
+        if (invPending) {
+          interactiveActionsHtml = `
+            <div class="notif-actions-row">
+              <button class="btn btn-secondary btn-xs" onclick="event.stopPropagation(); window.App.declineProjectInvitation('${n.projectId}', '${n.invitationId || ''}'); window.App.markNotificationRead('${n.id}');">Decline</button>
+              <button class="btn btn-primary btn-xs" onclick="event.stopPropagation(); window.App.acceptProjectInvitation('${n.projectId}', '${n.invitationId || ''}'); window.App.markNotificationRead('${n.id}');">Accept & Join</button>
+            </div>
+          `;
+        }
+      }
 
       return `
         <div class="notif-item ${n.read ? '' : 'unread'} ${isMention ? 'notif-mention' : ''} ${isAllMention ? 'notif-mention-all' : ''}" onclick="window.App.markNotificationRead('${n.id}')">
@@ -7261,6 +7458,7 @@
               ${mentionBadgeHtml}
             </div>
             <span class="notif-meta">${escapeHtml(projectName)} · ${timeAgo(n.createdAt)}</span>
+            ${interactiveActionsHtml}
           </div>
           ${!n.read ? '<span class="notif-dot"></span>' : ''}
         </div>`;
@@ -7373,30 +7571,60 @@
       return;
     }
 
-    project.members.push({
-      id: collab.id,
-      name: collab.name,
-      email: collab.email,
-      phone: collab.phone || (collab.id && localStorage.getItem('pulsepm_custom_phone_' + collab.id)) || '',
-      role: collab.role || 'Contributor',
-      avatar: collab.avatar
-    });
+    if (!project.pendingInvitations) project.pendingInvitations = [];
+    const existingInv = project.pendingInvitations.find(inv =>
+      (inv.status === 'pending' || !inv.status) &&
+      inv.inviteeEmail && collab.email && inv.inviteeEmail.trim().toLowerCase() === collab.email.trim().toLowerCase()
+    );
+    if (existingInv) {
+      showToast(`An invitation is already pending for ${collab.name}.`, 'info');
+      return;
+    }
 
+    const newInvitation = {
+      id: 'inv-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      projectId: project.id,
+      projectName: project.name,
+      invitedBy: state.currentUser ? state.currentUser.name : 'Admin',
+      invitedById: state.currentUser ? (state.currentUser.id || state.currentUser.uid) : '',
+      inviteeId: collab.id,
+      inviteeEmail: (collab.email || '').toLowerCase(),
+      inviteeName: collab.name,
+      role: collab.role || 'Contributor',
+      avatar: collab.avatar || computeAvatarInitials(collab.name),
+      status: 'pending',
+      invitedAt: new Date().toISOString()
+    };
+
+    project.pendingInvitations.unshift(newInvitation);
+
+    if (!project.activity) project.activity = [];
     project.activity.unshift({
       id: 'act-' + Date.now(),
-      text: `${state.currentUser.name} added ${collab.name} from past collaborators`,
+      text: `${state.currentUser ? state.currentUser.name : 'Admin'} invited ${collab.name} from past collaborators (waiting for acceptance)`,
       time: 'Just now',
       icon: 'member'
     });
 
     saveState();
     syncProjectToFirestore(project);
+
+    createNotification({
+      type: 'project_invitation',
+      recipientId: collab.id,
+      recipientEmail: (collab.email || '').toLowerCase(),
+      projectId: project.id,
+      invitationId: newInvitation.id,
+      message: `📩 ${state.currentUser ? state.currentUser.name : 'Admin'} invited you to join "${project.name}" as ${collab.role || 'Contributor'}.`
+    });
+
     renderPastCollaboratorsList(project);
     renderProjectDetail(project);
-    showToast(`Added ${collab.name} to project!`, 'success');
+    renderProjectTeam(project);
+    showToast(`Invitation sent to ${collab.name}! They will join once they accept.`, 'success');
   }
 
-  // Method 1: Add/Invite Member directly by Email
+  // Method 1: Add/Invite Member directly by Email (Requires Invitee Acceptance)
   function handleAddEmailMember() {
     const project = state.projects.find(p => p.id === state.activeProjectId);
     if (!project) return;
@@ -7424,21 +7652,37 @@
       return;
     }
 
+    if (!project.pendingInvitations) project.pendingInvitations = [];
+    const existingInv = project.pendingInvitations.find(inv =>
+      (inv.status === 'pending' || !inv.status) &&
+      inv.inviteeEmail && inv.inviteeEmail.trim().toLowerCase() === email
+    );
+    if (existingInv) {
+      showToast(`An invitation has already been sent to ${email} (waiting for their acceptance).`, 'info');
+      return;
+    }
+
     const initials = computeAvatarInitials(name);
-    const newMember = {
-      id: 'collab-' + Date.now(),
-      name: name,
-      email: email,
-      phone: '',
+    const newInvitation = {
+      id: 'inv-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      projectId: project.id,
+      projectName: project.name,
+      invitedBy: state.currentUser ? state.currentUser.name : 'Admin',
+      invitedById: state.currentUser ? (state.currentUser.id || state.currentUser.uid) : '',
+      inviteeEmail: email,
+      inviteeName: name,
       role: role,
-      avatar: initials
+      avatar: initials,
+      status: 'pending',
+      invitedAt: new Date().toISOString()
     };
 
-    project.members.push(newMember);
+    project.pendingInvitations.unshift(newInvitation);
 
+    if (!project.activity) project.activity = [];
     project.activity.unshift({
       id: 'act-' + Date.now(),
-      text: `${state.currentUser.name} added ${name} (${email}) as ${role}`,
+      text: `${state.currentUser ? state.currentUser.name : 'Admin'} invited ${name} (${email}) as ${role} (waiting for acceptance)`,
       time: 'Just now',
       icon: 'member'
     });
@@ -7450,9 +7694,21 @@
     emailInput.value = '';
     if (nameInput) nameInput.value = '';
 
+    // Notify invitee
+    createNotification({
+      type: 'project_invitation',
+      recipientEmail: email,
+      projectId: project.id,
+      invitationId: newInvitation.id,
+      message: `📩 ${state.currentUser ? state.currentUser.name : 'Admin'} invited you to join "${project.name}" as ${role}.`
+    });
+
     // Re-render project views
     renderProjectDetail(project);
+    renderProjectTeam(project);
     renderPastCollaboratorsList(project);
+
+    showToast(`Invitation sent to ${name}! They will join once they accept.`, 'success');
 
     // If Firestore is available, look up if user with this email has an existing account with an avatar
     if (isFirebaseLive && firebaseDb && email) {
@@ -7463,18 +7719,19 @@
             if (snap && !snap.empty && snap.docs && snap.docs[0]) {
               const uData = typeof snap.docs[0].data === 'function' ? snap.docs[0].data() : null;
               if (uData && (uData.avatar || uData.name)) {
-                if (uData.avatar) newMember.avatar = uData.avatar;
-                if (uData.name || uData.displayName) newMember.name = uData.name || uData.displayName;
-                if (uData.uid) newMember.id = uData.uid;
+                if (uData.avatar) newInvitation.avatar = uData.avatar;
+                if (uData.name || uData.displayName) newInvitation.inviteeName = uData.name || uData.displayName;
+                if (uData.uid) newInvitation.inviteeId = uData.uid;
                 saveState();
                 syncProjectToFirestore(project);
                 if (state.activeProjectId === project.id) {
                   renderProjectDetail(project);
+                  renderProjectTeam(project);
                 }
               }
             }
           }).catch(err => {
-            console.warn('Could not check user avatar for new member:', err);
+            console.warn('Could not fetch existing user avatar from Firestore:', err);
           });
         }
     }
@@ -7531,7 +7788,7 @@
 
     const normCode = enteredCode.replace(/\s+/g, '');
 
-    function completeJoin(project) {
+    function submitJoinRequest(project) {
       const currentEmail = getCurrentUserEmail();
       const currentUserId = state.currentUser ? (state.currentUser.id || state.currentUser.uid) : '';
 
@@ -7541,23 +7798,52 @@
         (m.email && currentEmail && m.email.trim().toLowerCase() === currentEmail.toLowerCase())
       );
 
-      if (!isAlreadyMember) {
-        project.members.push({
-          id: currentUserId,
-          name: state.currentUser.name,
-          email: currentEmail,
-          phone: state.currentUser.phone || (currentUserId && localStorage.getItem('pulsepm_custom_phone_' + currentUserId)) || '',
-          role: 'Contributor',
-          avatar: state.currentUser.avatar || computeAvatarInitials(state.currentUser.name)
-        });
-        if (!project.activity) project.activity = [];
-        project.activity.unshift({
-          id: 'act-' + Date.now(),
-          text: `${state.currentUser.name} joined the project via Join Code`,
-          time: 'Just now',
-          icon: 'member'
-        });
+      if (isAlreadyMember) {
+        closeModal('modal-join-project');
+        idInput.value = '';
+        codeInput.value = '';
+        showToast(`You are already an active member of "${project.name}"!`, 'info');
+        openProject(project.id);
+        return;
       }
+
+      if (!project.joinRequests) project.joinRequests = [];
+      const existingReq = project.joinRequests.find(r =>
+        (r.status === 'pending' || !r.status) &&
+        ((r.userId && currentUserId && r.userId === currentUserId) ||
+         (r.userEmail && currentEmail && r.userEmail.trim().toLowerCase() === currentEmail.toLowerCase()))
+      );
+
+      if (existingReq) {
+        closeModal('modal-join-project');
+        idInput.value = '';
+        codeInput.value = '';
+        showToast(`Your join request for "${project.name}" is already awaiting admin approval.`, 'info');
+        return;
+      }
+
+      const newReq = {
+        id: 'req-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        userId: currentUserId,
+        userName: state.currentUser ? (state.currentUser.name || 'Member') : 'Member',
+        userEmail: currentEmail,
+        userPhone: (state.currentUser && state.currentUser.phone) || (currentUserId && localStorage.getItem('pulsepm_custom_phone_' + currentUserId)) || '',
+        userAvatar: (state.currentUser && state.currentUser.avatar) || computeAvatarInitials(state.currentUser ? state.currentUser.name : 'M'),
+        role: 'Member',
+        joinCodeUsed: normCode,
+        status: 'pending',
+        requestedAt: new Date().toISOString()
+      };
+
+      project.joinRequests.unshift(newReq);
+
+      if (!project.activity) project.activity = [];
+      project.activity.unshift({
+        id: 'act-' + Date.now(),
+        text: `${state.currentUser ? state.currentUser.name : 'User'} requested to join the project via Join Code`,
+        time: 'Just now',
+        icon: 'member'
+      });
 
       const existingIdx = state.projects.findIndex(p => p.id === project.id);
       if (existingIdx !== -1) {
@@ -7569,12 +7855,24 @@
       saveState();
       syncProjectToFirestore(project);
 
+      // Notify project creator / admin
+      const adminId = project.creatorId || (project.members[0] ? project.members[0].id : null);
+      if (adminId && adminId !== currentUserId) {
+        createNotification({
+          type: 'join_request',
+          recipientId: adminId,
+          projectId: project.id,
+          requestId: newReq.id,
+          message: `🙋 ${state.currentUser ? state.currentUser.name : 'A member'} requested to join "${project.name}". Review in Team tab to approve.`
+        });
+      }
+
       closeModal('modal-join-project');
       idInput.value = '';
       codeInput.value = '';
 
-      showToast(`Successfully joined "${project.name}"!`, 'success');
-      openProject(project.id);
+      showToast(`Join request submitted! Waiting for the project admin to allow.`, 'success');
+      renderProjectGroups();
     }
 
     // 1. Check local state first
@@ -7584,7 +7882,7 @@
     );
 
     if (targetProject) {
-      completeJoin(targetProject);
+      submitJoinRequest(targetProject);
       return;
     }
 
@@ -7594,7 +7892,7 @@
         if (docSnap && docSnap.exists) {
           const cloudProj = docSnap.data();
           if (cloudProj && (cloudProj.joinCode || '').replace(/\s+/g, '') === normCode) {
-            completeJoin(cloudProj);
+            submitJoinRequest(cloudProj);
             return;
           }
         }
@@ -7607,6 +7905,285 @@
     }
 
     showToast('Invalid Project ID or 6-digit Join Code. Please try again.', 'error');
+  }
+
+  function approveJoinRequest(projectId, requestId) {
+    const project = state.projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    if (!isProjectAdmin(project, state.currentUser) && !isProjectOwner(project, state.currentUser)) {
+      showToast('Only project admins can approve join requests.', 'error');
+      return;
+    }
+
+    if (!project.joinRequests) return;
+    const reqIndex = project.joinRequests.findIndex(r => r.id === requestId);
+    if (reqIndex === -1) return;
+
+    const req = project.joinRequests[reqIndex];
+    req.status = 'accepted';
+
+    if (!project.members) project.members = [];
+    const isAlreadyMember = project.members.some(m =>
+      (m.id && req.userId && m.id === req.userId) ||
+      (m.email && req.userEmail && m.email.trim().toLowerCase() === req.userEmail.trim().toLowerCase())
+    );
+
+    if (!isAlreadyMember) {
+      project.members.push({
+        id: req.userId || ('usr-' + Date.now()),
+        name: req.userName,
+        email: req.userEmail,
+        phone: req.userPhone || '',
+        role: req.role || 'Member',
+        avatar: req.userAvatar || computeAvatarInitials(req.userName)
+      });
+    }
+
+    // Remove from pending join requests
+    project.joinRequests.splice(reqIndex, 1);
+
+    if (!project.activity) project.activity = [];
+    project.activity.unshift({
+      id: 'act-' + Date.now(),
+      text: `${state.currentUser.name} approved ${req.userName}'s request to join the project`,
+      time: 'Just now',
+      icon: 'member'
+    });
+
+    if (req.userId) {
+      createNotification({
+        type: 'join_request_approved',
+        recipientId: req.userId,
+        projectId: project.id,
+        message: `🎉 Your request to join "${project.name}" was approved by the admin!`
+      });
+    }
+
+    saveState();
+    syncProjectToFirestore(project);
+    renderProjectTeam(project);
+    renderProjectDetail(project);
+
+    showToast(`Approved ${req.userName}! They are now a member of "${project.name}".`, 'success');
+  }
+
+  function declineJoinRequest(projectId, requestId) {
+    const project = state.projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    if (!isProjectAdmin(project, state.currentUser) && !isProjectOwner(project, state.currentUser)) {
+      showToast('Only project admins can decline join requests.', 'error');
+      return;
+    }
+
+    if (!project.joinRequests) return;
+    const reqIndex = project.joinRequests.findIndex(r => r.id === requestId);
+    if (reqIndex === -1) return;
+
+    const req = project.joinRequests[reqIndex];
+    project.joinRequests.splice(reqIndex, 1);
+
+    if (!project.activity) project.activity = [];
+    project.activity.unshift({
+      id: 'act-' + Date.now(),
+      text: `${state.currentUser.name} declined ${req.userName}'s request to join the project`,
+      time: 'Just now',
+      icon: 'member'
+    });
+
+    if (req.userId) {
+      createNotification({
+        type: 'join_request_declined',
+        recipientId: req.userId,
+        projectId: project.id,
+        message: `ℹ️ Your request to join "${project.name}" was declined by the admin.`
+      });
+    }
+
+    saveState();
+    syncProjectToFirestore(project);
+    renderProjectTeam(project);
+
+    showToast(`Declined join request from ${req.userName}.`, 'info');
+  }
+
+  function acceptProjectInvitation(projectId, invitationId) {
+    const currentEmail = (getCurrentUserEmail() || '').toLowerCase();
+    const currentUid = state.currentUser ? (state.currentUser.id || state.currentUser.uid) : '';
+
+    let project = state.projects.find(p => p.id === projectId);
+
+    function doAccept(proj) {
+      if (!proj.pendingInvitations) proj.pendingInvitations = [];
+      const invIndex = proj.pendingInvitations.findIndex(inv =>
+        inv.id === invitationId ||
+        (inv.inviteeEmail && currentEmail && inv.inviteeEmail.toLowerCase() === currentEmail) ||
+        (inv.inviteeId && currentUid && inv.inviteeId === currentUid)
+      );
+
+      const inv = invIndex !== -1 ? proj.pendingInvitations[invIndex] : null;
+      const role = inv ? (inv.role || 'Contributor') : 'Contributor';
+
+      if (invIndex !== -1) {
+        proj.pendingInvitations.splice(invIndex, 1);
+      }
+
+      if (!proj.members) proj.members = [];
+      const isAlreadyMember = proj.members.some(m =>
+        (m.id && currentUid && m.id === currentUid) ||
+        (m.email && currentEmail && m.email.trim().toLowerCase() === currentEmail)
+      );
+
+      if (!isAlreadyMember) {
+        proj.members.push({
+          id: currentUid || ('usr-' + Date.now()),
+          name: state.currentUser ? state.currentUser.name : 'Member',
+          email: currentEmail,
+          phone: (state.currentUser && state.currentUser.phone) || (currentUid && localStorage.getItem('pulsepm_custom_phone_' + currentUid)) || '',
+          role: role,
+          avatar: (state.currentUser && state.currentUser.avatar) || computeAvatarInitials(state.currentUser ? state.currentUser.name : 'M')
+        });
+      }
+
+      if (!proj.activity) proj.activity = [];
+      proj.activity.unshift({
+        id: 'act-' + Date.now(),
+        text: `${state.currentUser ? state.currentUser.name : 'Member'} accepted the invitation and joined the project`,
+        time: 'Just now',
+        icon: 'member'
+      });
+
+      const existingIdx = state.projects.findIndex(p => p.id === proj.id);
+      if (existingIdx !== -1) {
+        state.projects[existingIdx] = proj;
+      } else {
+        state.projects.unshift(proj);
+      }
+
+      // Notify project creator
+      const adminId = proj.creatorId;
+      if (adminId && adminId !== currentUid) {
+        createNotification({
+          type: 'invitation_accepted',
+          recipientId: adminId,
+          projectId: proj.id,
+          message: `🤝 ${state.currentUser ? state.currentUser.name : 'A member'} accepted your invitation to join "${proj.name}".`
+        });
+      }
+
+      saveState();
+      syncProjectToFirestore(proj);
+
+      renderProjectGroups();
+      showToast(`Welcome to "${proj.name}"! You have successfully joined.`, 'success');
+      openProject(proj.id);
+    }
+
+    if (project) {
+      doAccept(project);
+    } else if (isFirebaseLive && firebaseDb) {
+      firebaseDb.collection('projects').doc(projectId).get().then(docSnap => {
+        if (docSnap && docSnap.exists) {
+          const cloudProj = docSnap.data();
+          doAccept(cloudProj);
+        } else {
+          showToast('Project invitation could not be found.', 'error');
+        }
+      }).catch(err => {
+        console.warn('Accept invite Firestore query error:', err);
+        showToast('Error accepting invitation.', 'error');
+      });
+    }
+  }
+
+  function declineProjectInvitation(projectId, invitationId) {
+    const currentEmail = (getCurrentUserEmail() || '').toLowerCase();
+    const currentUid = state.currentUser ? (state.currentUser.id || state.currentUser.uid) : '';
+
+    let project = state.projects.find(p => p.id === projectId);
+
+    function doDecline(proj) {
+      if (proj.pendingInvitations) {
+        const invIndex = proj.pendingInvitations.findIndex(inv =>
+          inv.id === invitationId ||
+          (inv.inviteeEmail && currentEmail && inv.inviteeEmail.toLowerCase() === currentEmail) ||
+          (inv.inviteeId && currentUid && inv.inviteeId === currentUid)
+        );
+        if (invIndex !== -1) {
+          proj.pendingInvitations.splice(invIndex, 1);
+        }
+      }
+
+      if (!proj.activity) proj.activity = [];
+      proj.activity.unshift({
+        id: 'act-' + Date.now(),
+        text: `${state.currentUser ? state.currentUser.name : 'Invited user'} declined the project invitation`,
+        time: 'Just now',
+        icon: 'member'
+      });
+
+      saveState();
+      syncProjectToFirestore(proj);
+      renderProjectGroups();
+      showToast(`Declined invitation to "${proj.name}".`, 'info');
+    }
+
+    if (project) {
+      doDecline(project);
+    } else if (isFirebaseLive && firebaseDb) {
+      firebaseDb.collection('projects').doc(projectId).get().then(docSnap => {
+        if (docSnap && docSnap.exists) {
+          doDecline(docSnap.data());
+        }
+      });
+    }
+  }
+
+  function cancelProjectInvitation(projectId, invitationId) {
+    const project = state.projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    if (!isProjectAdmin(project, state.currentUser) && !isProjectOwner(project, state.currentUser)) {
+      showToast('Only project admins can cancel invitations.', 'error');
+      return;
+    }
+
+    if (project.pendingInvitations) {
+      project.pendingInvitations = project.pendingInvitations.filter(inv => inv.id !== invitationId);
+    }
+
+    saveState();
+    syncProjectToFirestore(project);
+    renderProjectTeam(project);
+    showToast('Invitation cancelled.', 'info');
+  }
+
+  function getMyPendingProjectInvitations() {
+    if (!state.currentUser) return [];
+    const currentEmail = (getCurrentUserEmail() || '').toLowerCase();
+    const currentUid = state.currentUser.id || state.currentUser.uid;
+
+    const invites = [];
+    (state.projects || []).forEach(p => {
+      if (Array.isArray(p.pendingInvitations)) {
+        p.pendingInvitations.forEach(inv => {
+          if (inv.status === 'pending' || !inv.status) {
+            const matchesEmail = inv.inviteeEmail && currentEmail && inv.inviteeEmail.toLowerCase() === currentEmail;
+            const matchesId = inv.inviteeId && currentUid && inv.inviteeId === currentUid;
+            if (matchesEmail || matchesId) {
+              invites.push({
+                ...inv,
+                projectId: p.id,
+                projectName: p.name,
+                projectGroup: p.group || p.category || 'General'
+              });
+            }
+          }
+        });
+      }
+    });
+    return invites;
   }
 
   // =========================================================
@@ -8277,6 +8854,14 @@
     executeDeleteTask,
     deleteTask,
     showTaskDeletePermissionWarning,
+    approveJoinRequest,
+    declineJoinRequest,
+    acceptProjectInvitation,
+    declineProjectInvitation,
+    cancelProjectInvitation,
+    getMyPendingProjectInvitations,
+    renderDashboardInvitationsBanner,
+    renderProjectApprovalSections,
     state
   };
 

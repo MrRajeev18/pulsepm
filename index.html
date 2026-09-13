@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=3.6">
+  <link rel="stylesheet" href="styles.css?v=3.7">
 </head>
 <body>
   <div id="app" class="app-root">
@@ -279,6 +279,8 @@
               </button>
             </div>
           </div>
+
+          <div id="dashboard-invitations-container" style="display: none; margin-bottom: 20px;"></div>
 
           <div id="project-groups-grid" class="project-grid">
             <!-- Rendered by JavaScript -->
@@ -664,6 +666,9 @@
             </div>
           </div>
 
+          <div id="project-join-requests-container" style="display: none; margin-bottom: 20px;"></div>
+          <div id="project-pending-invites-container" style="display: none; margin-bottom: 20px;"></div>
+
           <div class="team-cards-grid" id="project-team-cards-list">
             <!-- Rendered by window.App.renderProjectTeam() -->
           </div>
@@ -851,17 +856,10 @@
               </div>
               <div class="invite-email-notice-body">
                 <div class="notice-point">
-                  <span class="notice-point-icon">⚡</span>
+                  <span class="notice-point-icon">📩</span>
                   <div>
-                    <strong>Automatic Dashboard Access:</strong>
-                    <span>When you add a colleague's email, this project will automatically show on their dashboard as soon as they sign in with this same email address (via Google or Email login).</span>
-                  </div>
-                </div>
-                <div class="notice-point">
-                  <span class="notice-point-icon">🔕</span>
-                  <div>
-                    <strong>No Automated Notification Sent:</strong>
-                    <span>Adding an email here does <em>not</em> dispatch any email or notification to the recipient. Please notify your colleague directly or share the project link / join code so they know to log in.</span>
+                    <strong>Member Acceptance Required:</strong>
+                    <span>Adding a colleague dispatches a project invitation. They will see an invitation banner on their dashboard and can review and click "Accept" to officially join.</span>
                   </div>
                 </div>
               </div>
@@ -1481,12 +1479,15 @@
         <div class="modal-header">
           <div>
             <h3>Join Project with Code</h3>
-            <p class="modal-subtitle">Enter the Project ID and 6-digit code shared by the project creator.</p>
+            <p class="modal-subtitle">Enter Project ID and Join Code to submit a join request to the project admin.</p>
           </div>
           <button class="modal-close-btn" onclick="window.App.closeModal('modal-join-project');">✕</button>
         </div>
         <form id="form-join-project" onsubmit="event.preventDefault(); window.App.handleJoinProjectWithCode();">
           <div class="modal-body">
+            <div class="notice-box info" style="margin-bottom: 14px; padding: 10px 12px; background: var(--bg-subtle); border-radius: 8px; border-left: 3px solid var(--primary); font-size: 0.8rem; line-height: 1.45;">
+              <span>💡 <strong>Two-Way Approval:</strong> Submitting will send a join request to the project admin. Once the admin allows/approves your request, you will immediately have full access.</span>
+            </div>
             <div class="form-group">
               <label for="join-project-id-input">Project ID <span class="required">*</span></label>
               <input type="text" id="join-project-id-input" placeholder="e.g. PRJ-1049" required>
@@ -1498,7 +1499,7 @@
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-ghost" onclick="window.App.closeModal('modal-join-project');">Cancel</button>
-            <button type="submit" class="btn btn-primary">Join Project</button>
+            <button type="submit" class="btn btn-primary">Request to Join</button>
           </div>
         </form>
       </div>
@@ -1959,6 +1960,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="app.js?v=3.6"></script>
+  <script src="app.js?v=3.7"></script>
 </body>
 </html>
