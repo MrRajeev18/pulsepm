@@ -3987,21 +3987,9 @@
       ` : '';
 
       html += `
-        <div class="kanban-card">
+        <div class="kanban-card" onclick="window.App.openTaskDetailModal('${projectId}', '${t.id}')">
           <div class="kanban-card-top">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <span class="badge-priority ${priorityClass}">${escapeHtml(t.priority)}</span>
-              ${canDelete ? `
-                <button type="button" class="btn-card-delete-task" onclick="event.stopPropagation(); window.App.confirmDeleteTask('${projectId}', '${t.id}');" title="Delete Task (Admin or Creator)">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                  <span>Delete</span>
-                </button>
-              ` : `
-                <button type="button" class="btn-card-delete-task btn-card-delete-locked" onclick="event.stopPropagation(); window.App.showTaskDeletePermissionWarning();" title="🔒 Only Project Admins/Owners and the Task Creator can delete this deliverable">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                </button>
-              `}
-            </div>
+            <span class="badge-priority ${priorityClass}">${escapeHtml(t.priority)}</span>
             <div class="task-dates-group" style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
               <span class="task-due-date" style="font-size: 0.72rem;">${t.status === 'completed' ? 'Due: ' : ''}${escapeHtml(formatDate(t.dueDate))}</span>
               ${t.status === 'completed' ? `
@@ -4012,10 +4000,10 @@
               ` : ''}
             </div>
           </div>
-          <h4 class="kanban-card-title" onclick="window.App.openTaskDetailModal('${projectId}', '${t.id}')" style="cursor: pointer;" title="Click to view details, subtasks & comments">${escapeHtml(t.title)}</h4>
+          <h4 class="kanban-card-title" style="cursor: pointer;" title="Click to view details, subtasks & comments">${escapeHtml(t.title)}</h4>
           ${t.description ? `<p class="kanban-card-desc">${escapeHtml(t.description)}</p>` : ''}
           
-          <div class="task-card-indicators" onclick="window.App.openTaskDetailModal('${projectId}', '${t.id}')" style="cursor: pointer;">
+          <div class="task-card-indicators" style="cursor: pointer;">
             ${subtaskBadgeHtml}
             ${commentsBadgeHtml}
             <button class="btn-open-task-detail" onclick="event.stopPropagation(); window.App.openTaskDetailModal('${projectId}', '${t.id}')">
@@ -4030,13 +4018,13 @@
               <span class="card-assignee-name">${escapeHtml(assigneeName)}</span>
             </div>
             ${canChangeStatus ? `
-              <select class="card-status-select" onchange="window.App.changeTaskStatus('${projectId}', '${t.id}', this.value)" title="Change task status">
+              <select class="card-status-select" onclick="event.stopPropagation();" onchange="event.stopPropagation(); window.App.changeTaskStatus('${projectId}', '${t.id}', this.value)" title="Change task status">
                 <option value="pending" ${t.status === 'pending' ? 'selected' : ''}>Pending</option>
                 <option value="in_progress" ${t.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
                 <option value="completed" ${t.status === 'completed' ? 'selected' : ''}>Completed</option>
               </select>
             ` : `
-              <select class="card-status-select card-status-locked" disabled title="Status can only be changed by ${escapeHtml(assigneeName)} or authorized project assigners">
+              <select class="card-status-select card-status-locked" onclick="event.stopPropagation();" disabled title="Status can only be changed by ${escapeHtml(assigneeName)} or authorized project assigners">
                 <option value="pending" ${t.status === 'pending' ? 'selected' : ''}>Pending 🔒</option>
                 <option value="in_progress" ${t.status === 'in_progress' ? 'selected' : ''}>In Progress 🔒</option>
                 <option value="completed" ${t.status === 'completed' ? 'selected' : ''}>Completed 🔒</option>
