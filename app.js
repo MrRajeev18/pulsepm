@@ -968,18 +968,44 @@
                                (chat.senderEmail && currentEmail && chat.senderEmail.toLowerCase() === currentEmail);
 
               if (!isSender) {
-                createNotification({
-                  type: 'chat_message',
-                  recipientId: currentUid,
-                  projectId: docData.id,
-                  message: `💬 ${chat.senderName || 'Team member'} in ${docData.name}: "${(chat.text || '').slice(0, 60)}${(chat.text || '').length > 60 ? '…' : ''}"`
-                });
+                const text = chat.text || '';
+                const isAllMention = isBroadcastMention(text);
+                const isDirectMention = state.currentUser ? isUserMentionedInText(text, state.currentUser) : false;
+                const isMention = isAllMention || isDirectMention;
 
-                sendDesktopNotification({
-                  title: `${chat.senderName || 'Team member'} (${docData.name})`,
-                  body: chat.text || 'Sent a new message',
-                  projectId: docData.id
-                });
+                if (isMention) {
+                  createNotification({
+                    type: 'mention',
+                    recipientId: currentUid,
+                    recipientEmail: currentEmail,
+                    projectId: docData.id,
+                    message: isAllMention
+                      ? `📢 ${chat.senderName || 'Team member'} mentioned @all in ${docData.name}: "${text.slice(0, 60)}${text.length > 60 ? '…' : ''}"`
+                      : `💬 ${chat.senderName || 'Team member'} mentioned you in ${docData.name}: "${text.slice(0, 60)}${text.length > 60 ? '…' : ''}"`
+                  });
+
+                  sendDesktopNotification({
+                    title: isAllMention
+                      ? `📢 @all Mentioned by ${chat.senderName || 'Team member'} (${docData.name})`
+                      : `Mentioned by ${chat.senderName || 'Team member'} (${docData.name})`,
+                    body: text || 'Mentioned you in chat',
+                    projectId: docData.id
+                  });
+                } else {
+                  createNotification({
+                    type: 'chat_message',
+                    recipientId: currentUid,
+                    recipientEmail: currentEmail,
+                    projectId: docData.id,
+                    message: `💬 ${chat.senderName || 'Team member'} in ${docData.name}: "${text.slice(0, 60)}${text.length > 60 ? '…' : ''}"`
+                  });
+
+                  sendDesktopNotification({
+                    title: `${chat.senderName || 'Team member'} (${docData.name})`,
+                    body: text || 'Sent a new message',
+                    projectId: docData.id
+                  });
+                }
               }
             });
           }
@@ -5983,6 +6009,45 @@
     selectedIndex: 0
   };
 
+  function isBroadcastMention(text) {
+    if (!text) return false;
+    return /(?:^|[\s(\[])@(all|everyone)\b/i.test(text);
+  }
+
+  function isUserMentionedInText(text, user) {
+    if (!text || !user) return false;
+
+    const candidates = new Set();
+    const fullName = (user.name || '').trim();
+    if (fullName) {
+      candidates.add(fullName);
+      const parts = fullName.split(/\s+/);
+      if (parts.length > 1 && parts[0].length >= 2) {
+        candidates.add(parts[0]);
+      }
+    }
+    if (user.email) {
+      const emailPrefix = user.email.split('@')[0];
+      if (emailPrefix && emailPrefix.length >= 2) {
+        candidates.add(emailPrefix);
+      }
+    }
+    if (user.username && user.username.trim() && user.username.trim().length >= 2) {
+      candidates.add(user.username.trim());
+    }
+
+    for (const cand of candidates) {
+      const lower = cand.toLowerCase();
+      if (lower === 'all' || lower === 'everyone') continue;
+      const escaped = cand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(?:^|[\\s(\\[])@${escaped}(?=[\\s.,!?;:)\\]]|$)`, 'i');
+      if (regex.test(text)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   function formatChatMentions(escapedText) {
     if (!escapedText) return '';
     // Format bold **text**
@@ -6254,25 +6319,49 @@
     markProjectChatsAsSeen(project.id);
 
     // Notify all other project members of the new chat message
+    const isAllMsg = isBroadcastMention(text);
     (project.members || []).forEach(member => {
       const isSender = (member.id && currentUid && member.id === currentUid) ||
                        (member.email && currentEmail && member.email.toLowerCase() === currentEmail);
-      if (!isSender && member.id) {
-        createNotification({
-          type: 'chat_message',
-          recipientId: member.id,
-          projectId: project.id,
-          message: `💬 ${state.currentUser.name} in ${project.name}: "${text.slice(0, 60)}${text.length > 60 ? '…' : ''}"`
-        });
+      if (!isSender && (member.id || member.email)) {
+        const isMemberMentioned = isAllMsg || isUserMentionedInText(text, member);
+        if (isMemberMentioned) {
+          createNotification({
+            type: 'mention',
+            recipientId: member.id,
+            recipientEmail: member.email,
+            projectId: project.id,
+            message: isAllMsg
+              ? `📢 ${state.currentUser.name} mentioned @all in ${project.name}: "${text.slice(0, 60)}${text.length > 60 ? '…' : ''}"`
+              : `💬 ${state.currentUser.name} mentioned you in ${project.name}: "${text.slice(0, 60)}${text.length > 60 ? '…' : ''}"`
+          });
+          sendDesktopNotification({
+            title: isAllMsg
+              ? `📢 @all Mentioned by ${state.currentUser.name} (${project.name})`
+              : `Mentioned by ${state.currentUser.name} (${project.name})`,
+            body: text,
+            projectId: project.id
+          });
+        } else {
+          createNotification({
+            type: 'chat_message',
+            recipientId: member.id,
+            recipientEmail: member.email,
+            projectId: project.id,
+            message: `💬 ${state.currentUser.name} in ${project.name}: "${text.slice(0, 60)}${text.length > 60 ? '…' : ''}"`
+          });
+          sendDesktopNotification({
+            title: `${state.currentUser.name} (${project.name})`,
+            body: text,
+            projectId: project.id
+          });
+        }
       }
     });
 
     saveState();
     syncProjectToFirestore(project);
     renderProjectChats(project);
-
-    // Fire @mention notifications
-    notifyMentions(project, text);
   }
 
   function scrollChatToBottom() {
@@ -8236,56 +8325,37 @@
   }
 
   function notifyMentions(project, messageText) {
+    if (!project || !messageText) return;
     const notified = new Set();
-    const isAll = /@all\b/i.test(messageText);
+    const isAll = isBroadcastMention(messageText);
 
-    // 1. If @all is mentioned, notify all project members except current user
-    if (isAll) {
-      (project.members || []).forEach(member => {
-        if (member.id && member.id !== state.currentUser.id && !notified.has(member.id)) {
-          notified.add(member.id);
-          createNotification({
-            type: 'mention',
-            recipientId: member.id,
-            projectId: project.id,
-            taskId: null,
-            message: `📢 ${state.currentUser.name} mentioned @all in ${project.name}: "${messageText.slice(0, 60)}${messageText.length > 60 ? '…' : ''}"`
-          });
-          sendDesktopNotification({
-            title: `📢 @all Mentioned by ${state.currentUser.name} (${project.name})`,
-            body: messageText,
-            projectId: project.id
-          });
-        }
-      });
-    }
+    (project.members || []).forEach(member => {
+      const currentUid = state.currentUser ? (state.currentUser.id || state.currentUser.uid) : null;
+      if (!member || (currentUid && member.id === currentUid)) return;
+      if (notified.has(member.id || member.email)) return;
 
-    // 2. Parse individual @Name mentions
-    const mentionRegex = /@([A-Za-z0-9_\.\-]+(?:\s[A-Za-z0-9_\.\-]+)?)/g;
-    let match;
-    while ((match = mentionRegex.exec(messageText)) !== null) {
-      const mentionedName = match[1].toLowerCase().trim();
-      if (mentionedName === 'all') continue;
-      const member = (project.members || []).find(m =>
-        m.id !== state.currentUser.id &&
-        (m.name.toLowerCase().includes(mentionedName) || (m.email && m.email.toLowerCase().includes(mentionedName)))
-      );
-      if (member && !notified.has(member.id)) {
-        notified.add(member.id);
+      const isMentioned = isAll || isUserMentionedInText(messageText, member);
+      if (isMentioned) {
+        notified.add(member.id || member.email);
         createNotification({
           type: 'mention',
           recipientId: member.id,
+          recipientEmail: member.email,
           projectId: project.id,
           taskId: null,
-          message: `💬 ${state.currentUser.name} mentioned you in ${project.name}: "${messageText.slice(0, 60)}${messageText.length > 60 ? '…' : ''}"`
+          message: isAll
+            ? `📢 ${state.currentUser.name} mentioned @all in ${project.name}: "${messageText.slice(0, 60)}${messageText.length > 60 ? '…' : ''}"`
+            : `💬 ${state.currentUser.name} mentioned you in ${project.name}: "${messageText.slice(0, 60)}${messageText.length > 60 ? '…' : ''}"`
         });
         sendDesktopNotification({
-          title: `Mentioned by ${state.currentUser.name} (${project.name})`,
+          title: isAll
+            ? `📢 @all Mentioned by ${state.currentUser.name} (${project.name})`
+            : `Mentioned by ${state.currentUser.name} (${project.name})`,
           body: messageText,
           projectId: project.id
         });
       }
-    }
+    });
   }
 
   function getMyNotifications() {
@@ -8414,8 +8484,10 @@
     list.innerHTML = bannerHtml + mine.map(n => {
       const project = state.projects.find(p => p.id === n.projectId);
       const projectName = project ? project.name : 'Project';
-      const isMention = n.type === 'mention';
-      const isAllMention = isMention && n.message && n.message.includes('@all');
+      const isExplicitMention = n.type === 'mention';
+      const containsMention = (n.type === 'chat_message' && n.message && (isBroadcastMention(n.message) || (state.currentUser && isUserMentionedInText(n.message, state.currentUser))));
+      const isMention = isExplicitMention || containsMention;
+      const isAllMention = isMention && n.message && (isBroadcastMention(n.message) || n.message.includes('📢 @all') || n.message.includes('@all'));
 
       let typeIconHtml = '';
       if (isAllMention) {
@@ -10137,6 +10209,8 @@
     selectMentionItem,
     setMentionHoverIndex,
     formatChatMentions,
+    isBroadcastMention,
+    isUserMentionedInText,
     mentionState,
     handleToggleChatBot,
     handleSaveSettings,
