@@ -145,6 +145,24 @@ button {
   box-shadow: 0 4px 10px rgba(79, 70, 229, 0.35);
 }
 
+.header-logo-icon {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  border-radius: 9px;
+  background: #ffffff;
+  padding: 2px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  flex-shrink: 0;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.brand-logo:hover .header-logo-icon {
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18);
+}
+
 .logo-text {
   font-size: 1.25rem;
   font-weight: 800;
@@ -7946,4 +7964,11 @@ body.dark .auth-brand-logo-img,
   background: #ffffff;
   border-color: rgba(255, 255, 255, 0.18);
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+body.dark .header-logo-icon,
+[data-theme="dark"] .header-logo-icon {
+  background: #ffffff;
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
