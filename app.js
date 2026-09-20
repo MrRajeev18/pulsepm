@@ -470,17 +470,25 @@
     const map = getLocalPresenceMap();
     if (uid) map[uid] = presenceEntry;
     if (email) map[email] = presenceEntry;
+    if (user.name) map[user.name.toLowerCase().trim()] = presenceEntry;
     saveLocalPresenceMap(map);
 
-    // Optional Firestore sync if live backend configured
+    // Real-time Firestore presence sync
     if (typeof firebase !== 'undefined' && firebase.firestore && typeof isFirebaseLive !== 'undefined' && isFirebaseLive && uid) {
       try {
         const db = firebase.firestore();
         if (db) {
-          db.collection('users').doc(uid).set({
+          db.collection('users').doc(String(uid)).set({
+            uid: String(uid),
+            id: String(uid),
+            email: email,
+            name: user.name || '',
+            avatar: user.avatar || '',
             isOnline: status === 'online',
             presenceStatus: status,
-            lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+            lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
+            lastSeenMs: now,
+            updatedAt: now
           }, { merge: true }).catch(() => {});
         }
       } catch (e) {}
@@ -506,6 +514,7 @@
 
     const memberId = member.id || member.uid;
     const memberEmail = (member.email || '').trim().toLowerCase();
+    const rawMemberName = (member.name || '').trim().toLowerCase();
     const currentEmail = (
       (state.currentUser && state.currentUser.email) ||
       (state.currentUser && state.currentUser.identities && state.currentUser.identities.email) ||
@@ -515,8 +524,9 @@
 
     const isCurrentUser = Boolean(
       state.isLoggedIn && state.currentUser && (
-        (memberId && state.currentUser.id && memberId === state.currentUser.id) ||
-        (memberEmail && currentEmail && memberEmail === currentEmail)
+        (memberId && state.currentUser.id && String(memberId) === String(state.currentUser.id)) ||
+        (memberEmail && currentEmail && memberEmail === currentEmail) ||
+        (rawMemberName && state.currentUser.name && rawMemberName === state.currentUser.name.toLowerCase().trim())
       )
     );
 
@@ -532,7 +542,10 @@
     }
 
     const map = getLocalPresenceMap();
-    const entry = (memberId && map[memberId]) || (memberEmail && map[memberEmail]) || null;
+    let entry = (memberId && map[String(memberId)]) || 
+                (memberEmail && map[memberEmail]) || 
+                (rawMemberName && map[rawMemberName]) || 
+                null;
 
     if (!entry || !entry.lastSeen) {
       return {
@@ -544,9 +557,9 @@
     }
 
     const now = Date.now();
-    const diff = now - entry.lastSeen;
+    const diff = now - Number(entry.lastSeen || 0);
 
-    if (entry.status === 'offline' || diff > 10 * 60 * 1000) {
+    if (entry.status === 'offline') {
       const timeAgo = formatPresenceTimeAgo(entry.lastSeen);
       return {
         status: 'offline',
@@ -556,7 +569,18 @@
       };
     }
 
-    if (entry.status === 'away' || diff > 2 * 60 * 1000) {
+    // Active within 2.5 minutes (150 seconds)
+    if ((entry.status === 'online' || entry.isOnline) && diff < 150000) {
+      return {
+        status: 'online',
+        label: 'Active now',
+        tooltip: 'Active now',
+        lastSeen: entry.lastSeen
+      };
+    }
+
+    // Away if marked away or diff < 5 minutes
+    if (entry.status === 'away' || diff < 300000) {
       const mins = Math.max(1, Math.round(diff / 60000));
       return {
         status: 'away',
@@ -566,10 +590,11 @@
       };
     }
 
+    const timeAgo = formatPresenceTimeAgo(entry.lastSeen);
     return {
-      status: 'online',
-      label: 'Active now',
-      tooltip: 'Active now',
+      status: 'offline',
+      label: 'Offline',
+      tooltip: timeAgo ? `Last seen ${timeAgo}` : 'Offline',
       lastSeen: entry.lastSeen
     };
   }
@@ -665,10 +690,80 @@
     presenceListenersAttached = true;
   }
 
+  let firestoreUsersUnsubscribe = null;
+  function subscribeToFirestoreUsersPresence() {
+    if (firestoreUsersUnsubscribe) {
+      try { firestoreUsersUnsubscribe(); } catch (e) {}
+      firestoreUsersUnsubscribe = null;
+    }
+    if (typeof firebase === 'undefined' || !firebase.firestore || !isFirebaseLive || !firebaseDb) return;
+
+    try {
+      firestoreUsersUnsubscribe = firebaseDb.collection('users').onSnapshot(snapshot => {
+        if (!snapshot) return;
+        const map = getLocalPresenceMap();
+        const now = Date.now();
+        let changed = false;
+
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          if (!data) return;
+          const docId = doc.id;
+          const uid = String(data.uid || data.id || docId || '').trim();
+          const email = (data.email || '').toLowerCase().trim();
+          const name = (data.name || data.displayName || '').trim();
+          const avatar = data.avatar || data.photoURL || '';
+
+          let lastSeenMs = data.lastSeenMs || data.updatedAt || 0;
+          if (data.lastSeen && typeof data.lastSeen.toMillis === 'function') {
+            lastSeenMs = data.lastSeen.toMillis();
+          } else if (data.lastSeen instanceof Date) {
+            lastSeenMs = data.lastSeen.getTime();
+          } else if (typeof data.lastSeen === 'number') {
+            lastSeenMs = data.lastSeen;
+          }
+
+          const isOnlineFlag = data.isOnline === true || data.presenceStatus === 'online';
+          const diff = lastSeenMs > 0 ? (now - lastSeenMs) : Infinity;
+          const isLiveOnline = isOnlineFlag && diff < 150000;
+          const status = isLiveOnline ? 'online' : (data.presenceStatus === 'away' && diff < 300000 ? 'away' : 'offline');
+
+          const entry = {
+            uid,
+            id: uid,
+            email,
+            name,
+            avatar,
+            status,
+            isOnline: status === 'online',
+            lastSeen: lastSeenMs || now,
+            updatedAt: now
+          };
+
+          if (docId) map[docId] = entry;
+          if (uid) map[uid] = entry;
+          if (email) map[email] = entry;
+          if (name) map[name.toLowerCase()] = entry;
+          changed = true;
+        });
+
+        if (changed) {
+          saveLocalPresenceMap(map);
+          refreshPresenceUI();
+        }
+      }, err => {
+        console.warn('Users presence listener note:', err);
+      });
+    } catch (e) {
+      console.warn('Could not setup users presence sync:', e);
+    }
+  }
+
   function startPresenceHeartbeat() {
     if (!state.isLoggedIn) return;
 
     updateMyPresence('online');
+    subscribeToFirestoreUsersPresence();
 
     if (presenceHeartbeatTimer) {
       if (typeof clearInterval !== 'undefined') {
@@ -693,6 +788,10 @@
         clearInterval(presenceHeartbeatTimer);
       }
       presenceHeartbeatTimer = null;
+    }
+    if (firestoreUsersUnsubscribe) {
+      try { firestoreUsersUnsubscribe(); } catch (e) {}
+      firestoreUsersUnsubscribe = null;
     }
     updateMyPresence('offline');
   }
