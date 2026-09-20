@@ -438,6 +438,9 @@
     }
   }
 
+  let lastFirestorePresenceWrite = 0;
+  let lastPresenceStatus = '';
+
   function updateMyPresence(statusOverride = null) {
     if (!state.isLoggedIn || !state.currentUser) return;
 
@@ -473,11 +476,17 @@
     if (user.name) map[user.name.toLowerCase().trim()] = presenceEntry;
     saveLocalPresenceMap(map);
 
-    // Real-time Firestore presence sync
-    if (typeof firebase !== 'undefined' && firebase.firestore && typeof isFirebaseLive !== 'undefined' && isFirebaseLive && uid) {
+    // Real-time Firestore presence sync (Throttled: only on status transition or every 5 min to conserve quota)
+    const statusChanged = (status !== lastPresenceStatus);
+    const timeSinceLastWrite = now - lastFirestorePresenceWrite;
+    const shouldWriteFirestore = statusChanged || (timeSinceLastWrite > 300000); // 5 minutes
+
+    if (shouldWriteFirestore && typeof firebase !== 'undefined' && firebase.firestore && typeof isFirebaseLive !== 'undefined' && isFirebaseLive && uid) {
       try {
         const db = firebase.firestore();
         if (db) {
+          lastFirestorePresenceWrite = now;
+          lastPresenceStatus = status;
           db.collection('users').doc(String(uid)).set({
             uid: String(uid),
             id: String(uid),
@@ -984,30 +993,12 @@
     const navDot = document.getElementById('nav-backend-dot');
     const navText = document.getElementById('nav-backend-text');
 
-    const isFileProtocol = window.location.protocol === 'file:';
-
-    if (isFileProtocol) {
-      if (bannerTitle) bannerTitle.innerText = 'Action Needed: Switch to http://localhost:3000';
-      if (bannerSub) bannerSub.innerHTML = 'Google OAuth & Phone SMS cannot run on <code>file://</code>. Please open <a href="http://localhost:3000" style="color:var(--primary-color);font-weight:700;text-decoration:underline;">http://localhost:3000</a> (server is running!).';
-      if (bannerDot) { bannerDot.className = 'status-dot demo'; }
-      if (navBadge) { navBadge.className = 'badge-backend-status demo'; }
-      if (navDot) { navDot.className = 'status-dot demo'; }
-      if (navText) { navText.innerText = '⚠️ Open localhost:3000'; }
-    } else if (isLive) {
-      if (bannerTitle) bannerTitle.innerText = 'Firebase: Live Cloud Backend';
-      if (bannerSub) bannerSub.innerText = 'Real Google OAuth, SMS OTP, and Cloud Firestore sync are active.';
-      if (bannerDot) { bannerDot.className = 'status-dot live'; }
-      if (navBadge) { navBadge.className = 'badge-backend-status live'; }
-      if (navDot) { navDot.className = 'status-dot live'; }
-      if (navText) { navText.innerText = '🔥 Firebase: Live'; }
-    } else {
-      if (bannerTitle) bannerTitle.innerText = 'Firebase Status: Demo Mode';
-      if (bannerSub) bannerSub.innerHTML = 'Paste keys in <code>firebase-config.js</code> to enable live Google OAuth & SMS.';
-      if (bannerDot) { bannerDot.className = 'status-dot demo'; }
-      if (navBadge) { navBadge.className = 'badge-backend-status demo'; }
-      if (navDot) { navDot.className = 'status-dot demo'; }
-      if (navText) { navText.innerText = '🔥 Firebase: Demo'; }
-    }
+    if (bannerTitle) bannerTitle.style.display = 'none';
+    if (bannerSub) bannerSub.style.display = 'none';
+    if (bannerDot) bannerDot.style.display = 'none';
+    if (navBadge) navBadge.style.display = 'none';
+    if (navDot) navDot.style.display = 'none';
+    if (navText) navText.style.display = 'none';
   }
 
   function openFirebaseHelpModal() {
@@ -1347,8 +1338,16 @@
           if (!docData) return;
           docData.id = docData.id || change.doc.id;
 
-          // Membership check: only process projects this user belongs to
-          const isMember = isUserMemberOfProject(docData, user) ||
+          // Membership & invitation check: process projects this user belongs to or has a pending invite to
+          const isInvited = Array.isArray(docData.pendingInvitations) && docData.pendingInvitations.some(inv => {
+            if (!inv || (inv.status && inv.status !== 'pending')) return false;
+            const invEmail = (inv.inviteeEmail || '').toLowerCase().trim();
+            const invId = inv.inviteeId ? String(inv.inviteeId).trim() : '';
+            return (invEmail && userEmail && invEmail === userEmail) || (invId && userId && invId === userId);
+          });
+
+          const isMember = isInvited ||
+            isUserMemberOfProject(docData, user) ||
             (docData.creatorEmail && userEmail && docData.creatorEmail.trim().toLowerCase() === userEmail) ||
             (docData.creatorId && userId && String(docData.creatorId) === userId) ||
             (Array.isArray(docData.memberEmails) && userEmail && docData.memberEmails.map(e => String(e).toLowerCase().trim()).includes(userEmail)) ||
@@ -1523,6 +1522,7 @@
 
         if (hasChanges) {
           saveState();
+          syncPendingInvitationsWithNotifications(state.projects, user);
           // Always keep home dashboard stats, pending tasks, and project group cards live
           renderHome();
 
@@ -2251,14 +2251,79 @@
     }
   }
 
+  let currentAuthMode = 'signin';
+
+  function switchAuthMode(mode) {
+    currentAuthMode = mode;
+    const signinTab = document.getElementById('web-auth-tab-signin');
+    const signupTab = document.getElementById('web-auth-tab-signup');
+    const nameGroup = document.getElementById('web-auth-name-group');
+    const submitBtn = document.getElementById('web-auth-submit-btn');
+    const errorBox = document.getElementById('web-auth-error-msg');
+    if (errorBox) errorBox.style.display = 'none';
+
+    if (mode === 'signup') {
+      if (signinTab) {
+        signinTab.classList.remove('active');
+        signinTab.setAttribute('aria-selected', 'false');
+      }
+      if (signupTab) {
+        signupTab.classList.add('active');
+        signupTab.setAttribute('aria-selected', 'true');
+      }
+      if (nameGroup) nameGroup.style.display = 'block';
+      if (submitBtn) submitBtn.innerText = 'Create Account & Sign In';
+    } else {
+      if (signupTab) {
+        signupTab.classList.remove('active');
+        signupTab.setAttribute('aria-selected', 'false');
+      }
+      if (signinTab) {
+        signinTab.classList.add('active');
+        signinTab.setAttribute('aria-selected', 'true');
+      }
+      if (nameGroup) nameGroup.style.display = 'none';
+      if (submitBtn) submitBtn.innerText = 'Sign In to Workspace';
+    }
+  }
+
   function handleGmailLogin() {
     const emailInput = document.getElementById('gmail-input');
     const passwordInput = document.getElementById('gmail-password');
+    const nameInput = document.getElementById('web-auth-name-input');
+    const errorBox = document.getElementById('web-auth-error-msg');
     const email = emailInput ? emailInput.value.trim() : '';
     const password = passwordInput ? passwordInput.value : '';
+    const name = nameInput ? nameInput.value.trim() : '';
+
+    if (errorBox) errorBox.style.display = 'none';
 
     if (!email || !password) {
-      showToast('Please enter both email and password.', 'error');
+      if (errorBox) {
+        errorBox.innerText = 'Please enter both email and password.';
+        errorBox.style.display = 'block';
+      } else {
+        showToast('Please enter both email and password.', 'error');
+      }
+      return;
+    }
+
+    if (currentAuthMode === 'signup' && isFirebaseLive && firebaseAuth) {
+      firebaseAuth.createUserWithEmailAndPassword(email, password)
+        .then(cred => {
+          if (name && cred.user) {
+            cred.user.updateProfile({ displayName: name }).catch(() => {});
+          }
+          syncFirebaseUser(cred.user, 'Email Registration');
+        })
+        .catch(err => {
+          if (errorBox) {
+            errorBox.innerText = err.message;
+            errorBox.style.display = 'block';
+          } else {
+            showToast(err.message, 'error');
+          }
+        });
       return;
     }
 
@@ -2271,22 +2336,38 @@
           if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
             // Automatically register new email account
             firebaseAuth.createUserWithEmailAndPassword(email, password)
-              .then(cred => syncFirebaseUser(cred.user, 'Email Registration'))
-              .catch(err2 => showToast(err2.message, 'error'));
+              .then(cred => {
+                if (name && cred.user) {
+                  cred.user.updateProfile({ displayName: name }).catch(() => {});
+                }
+                syncFirebaseUser(cred.user, 'Email Registration');
+              })
+              .catch(err2 => {
+                if (errorBox) {
+                  errorBox.innerText = err2.message;
+                  errorBox.style.display = 'block';
+                } else {
+                  showToast(err2.message, 'error');
+                }
+              });
           } else {
-            showToast(err.message, 'error');
+            if (errorBox) {
+              errorBox.innerText = err.message;
+              errorBox.style.display = 'block';
+            } else {
+              showToast(err.message, 'error');
+            }
           }
         });
       return;
     }
 
     // Demo Mode fallback with actual entered email
-    const cachedName = localStorage.getItem('pulsepm_custom_name_' + email.toLowerCase());
-    const name = cachedName || email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    const avatar = computeAvatarInitials(name);
+    const customName = name || localStorage.getItem('pulsepm_custom_name_' + email.toLowerCase()) || email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    const avatar = computeAvatarInitials(customName);
     const demoUser = {
       id: 'usr_' + Date.now(),
-      name: name || 'Pulse User',
+      name: customName || 'Pulse User',
       role: 'Project Member',
       avatar: avatar,
       identities: {
@@ -10007,18 +10088,69 @@
     showToast(`Join request for "${project.name}" has been withdrawn.`, 'info');
   }
 
-  function getMyPendingProjectInvitations() {
-    if (!state.currentUser) return [];
-    const currentEmail = (getCurrentUserEmail() || '').toLowerCase();
-    const currentUid = state.currentUser.id || state.currentUser.uid;
+  function syncPendingInvitationsWithNotifications(projectList, user) {
+    const activeUser = user || state.currentUser;
+    if (!activeUser) return;
+    const currentEmail = (getCurrentUserEmail(activeUser) || '').toLowerCase().trim();
+    const currentUid = String(activeUser.id || activeUser.uid || '').trim();
+    const projs = projectList || state.projects || [];
+
+    let changed = false;
+    projs.forEach(p => {
+      if (Array.isArray(p.pendingInvitations)) {
+        p.pendingInvitations.forEach(inv => {
+          if (inv && (inv.status === 'pending' || !inv.status)) {
+            const invEmail = (inv.inviteeEmail || '').toLowerCase().trim();
+            const invId = inv.inviteeId ? String(inv.inviteeId).trim() : '';
+            const matchesEmail = invEmail && currentEmail && invEmail === currentEmail;
+            const matchesId = invId && currentUid && invId === currentUid;
+
+            if (matchesEmail || matchesId) {
+              if (!state.notifications) state.notifications = [];
+              const existing = state.notifications.find(n =>
+                n.type === 'project_invitation' &&
+                (n.invitationId === inv.id || n.projectId === p.id)
+              );
+              if (!existing) {
+                state.notifications.unshift({
+                  id: 'notif_inv_' + (inv.id || Date.now()),
+                  type: 'project_invitation',
+                  recipientId: currentUid,
+                  recipientEmail: currentEmail,
+                  projectId: p.id,
+                  invitationId: inv.id,
+                  message: `📩 ${inv.invitedBy || 'Admin'} invited you to join "${p.name}" as ${inv.role || 'Member'}.`,
+                  read: false,
+                  createdAt: inv.invitedAt || new Date().toISOString()
+                });
+                changed = true;
+              }
+            }
+          }
+        });
+      }
+    });
+
+    if (changed) {
+      saveState();
+      updateNotificationBell();
+    }
+  }
+
+  function getMyPendingProjectInvitations(user = state.currentUser) {
+    if (!user) return [];
+    const currentEmail = (getCurrentUserEmail(user) || '').toLowerCase().trim();
+    const currentUid = String(user.id || user.uid || '').trim();
 
     const invites = [];
     (state.projects || []).forEach(p => {
       if (Array.isArray(p.pendingInvitations)) {
         p.pendingInvitations.forEach(inv => {
-          if (inv.status === 'pending' || !inv.status) {
-            const matchesEmail = inv.inviteeEmail && currentEmail && inv.inviteeEmail.toLowerCase() === currentEmail;
-            const matchesId = inv.inviteeId && currentUid && inv.inviteeId === currentUid;
+          if (inv && (inv.status === 'pending' || !inv.status)) {
+            const invEmail = (inv.inviteeEmail || '').toLowerCase().trim();
+            const invId = inv.inviteeId ? String(inv.inviteeId).trim() : '';
+            const matchesEmail = invEmail && currentEmail && invEmail === currentEmail;
+            const matchesId = invId && currentUid && invId === currentUid;
             if (matchesEmail || matchesId) {
               invites.push({
                 ...inv,
@@ -11021,6 +11153,7 @@
     getLocalPresenceMap,
     saveLocalPresenceMap,
     PRESENCE_STORAGE_KEY,
+    switchAuthMode,
     state
   };
 
