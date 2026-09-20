@@ -950,6 +950,7 @@
               try { firestoreProjectsUnsubscribe(); } catch(e){}
               firestoreProjectsUnsubscribe = null;
             }
+            unsubscribeActiveProjectDoc();
             if (state.isLoggedIn) {
               state.isLoggedIn = false;
               state.currentUser = null;
@@ -1028,6 +1029,179 @@
   // 4.5 CLOUD FIRESTORE PROJECT & TASK SYNC ENGINE
   // =========================================================
   let firestoreProjectsUnsubscribe = null;
+  let activeProjectDocUnsubscribe = null;
+
+  // Inter-app real-time BroadcastChannel sync (0ms latency cross-tab / preview / offline sync)
+  const pulseLiveSyncChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('pulsepm_live_sync') : null;
+
+  if (pulseLiveSyncChannel) {
+    pulseLiveSyncChannel.onmessage = (event) => {
+      try {
+        const data = event.data;
+        if (!data || !data.type) return;
+
+        if (data.type === 'NEW_CHAT_MESSAGE' && data.projectId && data.message) {
+          let targetProj = state.projects.find(p => p.id === data.projectId || String(p.id) === String(data.projectId));
+          if (!targetProj) {
+            targetProj = { id: data.projectId, name: data.projectName || 'Project', chats: [], tasks: [], members: [] };
+            state.projects.push(targetProj);
+          }
+
+          if (!Array.isArray(targetProj.chats)) targetProj.chats = [];
+          const exists = targetProj.chats.some(c => c && c.id === data.message.id);
+          if (!exists) {
+            const incomingMsg = { ...data.message, status: 'delivered' };
+            targetProj.chats.push(incomingMsg);
+            saveState();
+
+            // Send back ACK
+            try {
+              pulseLiveSyncChannel.postMessage({
+                type: 'CHAT_DELIVERED_ACK',
+                projectId: data.projectId,
+                messageId: data.message.id
+              });
+            } catch (e) {}
+
+            // If this project is currently open in chat view, re-render immediately and scroll
+            if (state.activeProjectId === data.projectId || String(state.activeProjectId) === String(data.projectId)) {
+              updateChatTabBadge(targetProj);
+              if (state.activeProjectTab === 'chats') {
+                renderProjectChats(targetProj);
+                scrollChatToBottom();
+                markProjectChatsAsSeen(data.projectId);
+              }
+            }
+          }
+        } else if (data.type === 'CHAT_DELIVERED_ACK' && data.messageId) {
+          updateWebChatMsgStatusUI(data.messageId, 'delivered');
+          if (data.projectId) {
+            const p = state.projects.find(x => x.id === data.projectId || String(x.id) === String(data.projectId));
+            if (p && Array.isArray(p.chats)) {
+              const msg = p.chats.find(c => c && c.id === data.messageId);
+              if (msg) {
+                msg.status = 'delivered';
+                saveState();
+              }
+            }
+          }
+        } else if (data.type === 'PROJECT_UPDATED' && data.projectId && data.project) {
+          const incoming = data.project;
+          incoming.id = incoming.id || data.projectId;
+          const pIdx = state.projects.findIndex(p => p.id === data.projectId || String(p.id) === String(data.projectId));
+
+          if (pIdx !== -1) {
+            const existing = state.projects[pIdx];
+            const pendingChats = (existing.chats || []).filter(c => c && c.status === 'sending');
+            if (pendingChats.length > 0) {
+              if (!Array.isArray(incoming.chats)) incoming.chats = [];
+              pendingChats.forEach(pm => {
+                if (!incoming.chats.some(c => c && c.id === pm.id)) {
+                  incoming.chats.push(pm);
+                }
+              });
+            }
+            state.projects[pIdx] = { ...existing, ...incoming };
+          } else {
+            state.projects.push(incoming);
+          }
+
+          saveState();
+          renderHome();
+
+          if (state.activeProjectId === data.projectId || String(state.activeProjectId) === String(data.projectId)) {
+            const currentProj = state.projects.find(p => p.id === state.activeProjectId || String(p.id) === String(state.activeProjectId));
+            if (currentProj) {
+              syncProjectMemberAvatarsFromFirestore(currentProj);
+              renderProjectDetail(currentProj);
+              if (state.activeProjectTab === 'chats') {
+                scrollChatToBottom();
+              }
+            }
+          }
+
+          // Live update task detail modal if open
+          refreshOpenTaskDetailModal();
+        }
+      } catch (err) {
+        console.warn('[PulsePM Web] BroadcastChannel message note:', err);
+      }
+    };
+  }
+
+  function subscribeToActiveProjectDoc(projectId) {
+    if (activeProjectDocUnsubscribe) {
+      try { activeProjectDocUnsubscribe(); } catch (e) {}
+      activeProjectDocUnsubscribe = null;
+    }
+    if (!isFirebaseLive || !firebaseDb || !projectId) return;
+
+    try {
+      activeProjectDocUnsubscribe = firebaseDb.collection('projects').doc(projectId).onSnapshot(docSnap => {
+        if (!docSnap || !docSnap.exists) return;
+        const cloudData = docSnap.data();
+        if (!cloudData) return;
+        cloudData.id = cloudData.id || docSnap.id;
+
+        let currentProj = state.projects.find(p => p.id === projectId || String(p.id) === String(projectId));
+        const prevChats = currentProj ? (currentProj.chats || []) : [];
+        const incomingChats = Array.isArray(cloudData.chats) ? cloudData.chats : [];
+
+        // Retain any locally sending messages
+        const pending = prevChats.filter(c => c && c.status === 'sending');
+        pending.forEach(pm => {
+          if (!incomingChats.some(c => c && c.id === pm.id)) {
+            incomingChats.push(pm);
+          }
+        });
+
+        const merged = {
+          ...(currentProj || {}),
+          ...cloudData,
+          id: cloudData.id,
+          chats: incomingChats
+        };
+
+        if (currentProj) {
+          const idx = state.projects.findIndex(p => p.id === projectId || String(p.id) === String(projectId));
+          if (idx !== -1) {
+            state.projects[idx] = merged;
+          }
+        } else {
+          state.projects.push(merged);
+        }
+        currentProj = merged;
+
+        saveState();
+
+        // Immediately refresh Home dashboard stats, counts, and project cards
+        renderHome();
+
+        if (state.activeProjectId === projectId || String(state.activeProjectId) === String(projectId)) {
+          syncProjectMemberAvatarsFromFirestore(currentProj);
+          renderProjectDetail(currentProj);
+          updateChatTabBadge(currentProj);
+          if (state.activeProjectTab === 'chats') {
+            scrollChatToBottom();
+          }
+        }
+
+        // Live update task detail modal if open
+        refreshOpenTaskDetailModal(currentProj);
+      }, err => {
+        console.warn('[PulsePM Web] Direct active project listener note:', err);
+      });
+    } catch (e) {
+      console.warn('[PulsePM Web] Could not subscribe to active project doc:', e);
+    }
+  }
+
+  function unsubscribeActiveProjectDoc() {
+    if (activeProjectDocUnsubscribe) {
+      try { activeProjectDocUnsubscribe(); } catch (e) {}
+      activeProjectDocUnsubscribe = null;
+    }
+  }
 
   function sanitizeProjectForFirestore(project) {
     if (!project) return null;
@@ -1058,10 +1232,18 @@
       .map(inv => (inv.inviteeId || '').toString())
       .filter(Boolean);
 
+    const existingMemberEmails = Array.isArray(project.memberEmails)
+      ? project.memberEmails.map(e => String(e).trim().toLowerCase()).filter(Boolean)
+      : [];
+
+    const existingMemberUids = Array.isArray(project.memberUids)
+      ? project.memberUids.map(u => String(u).trim()).filter(Boolean)
+      : [];
+
     // Deep clone to remove non-serializable properties
     const clean = JSON.parse(JSON.stringify(project));
-    clean.memberEmails = Array.from(new Set([...memberEmails, ...inviteeEmails]));
-    clean.memberUids = Array.from(new Set([...memberUids, ...inviteeUids]));
+    clean.memberEmails = Array.from(new Set([...existingMemberEmails, ...memberEmails, ...inviteeEmails]));
+    clean.memberUids = Array.from(new Set([...existingMemberUids, ...memberUids, ...inviteeUids]));
     clean.updatedAt = new Date().toISOString();
 
     if (Array.isArray(clean.tasks)) {
@@ -1075,10 +1257,24 @@
   }
 
   function syncProjectToFirestore(project) {
-    if (!isFirebaseLive || !firebaseDb || !project || !project.id) return;
+    if (!project || !project.id) return;
     try {
       const cleanData = sanitizeProjectForFirestore(project);
       if (!cleanData) return;
+
+      // Broadcast immediately across all browser tabs/windows (0ms latency local sync)
+      if (pulseLiveSyncChannel) {
+        try {
+          pulseLiveSyncChannel.postMessage({
+            type: 'PROJECT_UPDATED',
+            projectId: project.id,
+            project: cleanData,
+            senderUid: (state.currentUser && (state.currentUser.id || state.currentUser.uid)) || ''
+          });
+        } catch (e) {}
+      }
+
+      if (!isFirebaseLive || !firebaseDb) return;
       firebaseDb.collection('projects').doc(project.id).set(cleanData, { merge: true })
         .then(() => {
           console.log(`Cloud Firestore: Project "${project.name}" (${project.id}) synced.`);
@@ -1132,15 +1328,10 @@
     if (!userEmail && !userId) return;
 
     try {
-      let query = firebaseDb.collection('projects');
-      if (typeof query.where === 'function') {
-        if (userEmail) {
-          query = query.where('memberEmails', 'array-contains', userEmail);
-        } else {
-          query = query.where('memberUids', 'array-contains', userId);
-        }
-      }
-
+      // Listen to projects collection and use robust membership filtering in JS
+      // This prevents Firestore's strict array-contains query from dropping projects
+      // due to casing differences, UID vs Email differences, or missing fields.
+      const query = firebaseDb.collection('projects');
       if (!query || typeof query.onSnapshot !== 'function') return;
 
       let isInitialSnapshot = true;
@@ -1153,20 +1344,39 @@
           }
 
           const docData = change.doc.data();
-          if (!docData || !docData.id) return;
+          if (!docData) return;
+          docData.id = docData.id || change.doc.id;
 
-          // Detect incoming chat messages from other members in real-time
+          // Membership check: only process projects this user belongs to
+          const isMember = isUserMemberOfProject(docData, user) ||
+            (docData.creatorEmail && userEmail && docData.creatorEmail.trim().toLowerCase() === userEmail) ||
+            (docData.creatorId && userId && String(docData.creatorId) === userId) ||
+            (Array.isArray(docData.memberEmails) && userEmail && docData.memberEmails.map(e => String(e).toLowerCase().trim()).includes(userEmail)) ||
+            (Array.isArray(docData.memberUids) && userId && docData.memberUids.map(u => String(u).trim()).includes(userId));
+
+          if (!isMember) {
+            // If user was removed from project
+            const beforeLen = state.projects.length;
+            state.projects = state.projects.filter(p => p.id !== docData.id && String(p.id) !== String(docData.id));
+            if (state.projects.length !== beforeLen) hasChanges = true;
+            return;
+          }
+
+          // Detect incoming chat messages & task updates from other members in real-time
           if (!isInitialSnapshot && (change.type === 'added' || change.type === 'modified')) {
-            const existingProj = state.projects.find(p => p.id === docData.id);
+            const existingProj = state.projects.find(p => p.id === docData.id || String(p.id) === String(docData.id));
             const prevChats = (existingProj && existingProj.chats) || [];
             const prevChatIds = new Set(prevChats.map(c => c && c.id).filter(Boolean));
             const newChats = (docData.chats || []).filter(c => c && c.id && !prevChatIds.has(c.id));
 
+            const currentUid = (state.currentUser && (state.currentUser.id || state.currentUser.uid)) || userId;
+            const currentEmail = (state.currentUser && state.currentUser.email ? state.currentUser.email.toLowerCase() : userEmail);
+
             newChats.forEach(chat => {
-              const currentUid = (state.currentUser && (state.currentUser.id || state.currentUser.uid)) || userId;
-              const currentEmail = (state.currentUser && state.currentUser.email ? state.currentUser.email.toLowerCase() : userEmail);
-              const isSender = (chat.senderId && currentUid && chat.senderId === currentUid) ||
-                               (chat.senderEmail && currentEmail && chat.senderEmail.toLowerCase() === currentEmail);
+              const senderId = chat.senderId ? String(chat.senderId) : (chat.authorId ? String(chat.authorId) : '');
+              const senderEmail = (chat.authorEmail || chat.senderEmail || '').toLowerCase();
+              const isSender = (senderId && currentUid && senderId === String(currentUid)) ||
+                               (senderEmail && currentEmail && senderEmail === currentEmail);
 
               if (!isSender) {
                 const text = chat.text || '';
@@ -1209,24 +1419,100 @@
                 }
               }
             });
+
+            // Detect task modifications, status changes, assignments, and comments from other teammates
+            const prevTasks = (existingProj && Array.isArray(existingProj.tasks)) ? existingProj.tasks : [];
+            const incomingTasks = Array.isArray(docData.tasks) ? docData.tasks : [];
+
+            incomingTasks.forEach(newTask => {
+              if (!newTask) return;
+              const oldTask = prevTasks.find(t => t && (t.id === newTask.id || String(t.id) === String(newTask.id)));
+              const isAssignedToMe = isTaskAssignedToUser(newTask, state.currentUser);
+
+              if (!oldTask && isAssignedToMe) {
+                const creator = newTask.creatorName || 'A teammate';
+                createNotification({
+                  type: 'task_assigned',
+                  recipientId: currentUid,
+                  recipientEmail: currentEmail,
+                  projectId: docData.id,
+                  taskId: newTask.id,
+                  message: `📋 ${creator} assigned you "${newTask.title}" in ${docData.name}`
+                });
+                showToast(`📋 ${creator} assigned you "${newTask.title}"`, 'info');
+              } else if (oldTask) {
+                const wasAssignedToMe = isTaskAssignedToUser(oldTask, state.currentUser);
+                if (!wasAssignedToMe && isAssignedToMe) {
+                  createNotification({
+                    type: 'task_assigned',
+                    recipientId: currentUid,
+                    recipientEmail: currentEmail,
+                    projectId: docData.id,
+                    taskId: newTask.id,
+                    message: `📋 You were assigned deliverable "${newTask.title}" in ${docData.name}`
+                  });
+                  showToast(`📋 Assigned to you: "${newTask.title}"`, 'info');
+                }
+
+                if (oldTask.status !== newTask.status && newTask.status === 'completed') {
+                  createNotification({
+                    type: 'task_completed',
+                    recipientId: currentUid,
+                    recipientEmail: currentEmail,
+                    projectId: docData.id,
+                    taskId: newTask.id,
+                    message: `✅ Deliverable "${newTask.title}" was marked completed in ${docData.name}`
+                  });
+                  showToast(`✅ "${newTask.title}" completed in ${docData.name}`, 'success');
+                }
+
+                const oldComments = Array.isArray(oldTask.comments) ? oldTask.comments : [];
+                const newComments = Array.isArray(newTask.comments) ? newTask.comments : [];
+                if (newComments.length > oldComments.length) {
+                  const addedComments = newComments.slice(oldComments.length);
+                  addedComments.forEach(cmt => {
+                    const isMyComment = (cmt.authorId && String(cmt.authorId) === String(currentUid)) ||
+                                        (cmt.authorEmail && cmt.authorEmail.toLowerCase() === currentEmail);
+                    if (!isMyComment && (isAssignedToMe || (oldTask.creatorId && String(oldTask.creatorId) === String(currentUid)))) {
+                      createNotification({
+                        type: 'task_comment',
+                        recipientId: currentUid,
+                        recipientEmail: currentEmail,
+                        projectId: docData.id,
+                        taskId: newTask.id,
+                        message: `💬 ${cmt.authorName || 'Teammate'} posted a note on "${newTask.title}": "${(cmt.text || '').slice(0, 50)}"`
+                      });
+                      showToast(`💬 ${cmt.authorName || 'Teammate'} updated "${newTask.title}"`, 'info');
+                    }
+                  });
+                }
+              }
+            });
           }
 
           if (change.type === 'added' || change.type === 'modified') {
-            const existingIdx = state.projects.findIndex(p => p.id === docData.id);
+            const existingIdx = state.projects.findIndex(p => p.id === docData.id || String(p.id) === String(docData.id));
             if (existingIdx !== -1) {
-              const currentStr = JSON.stringify(state.projects[existingIdx]);
-              const incomingStr = JSON.stringify(docData);
-              if (currentStr !== incomingStr) {
-                state.projects[existingIdx] = docData;
-                hasChanges = true;
+              // Merge carefully so pending local chat messages aren't wiped
+              const existingChats = state.projects[existingIdx].chats || [];
+              const incomingChats = Array.isArray(docData.chats) ? docData.chats : [];
+              const pendingLocal = existingChats.filter(c => c && c.status === 'sending');
+              if (pendingLocal.length > 0) {
+                pendingLocal.forEach(pm => {
+                  if (!incomingChats.some(c => c && c.id === pm.id)) {
+                    incomingChats.push(pm);
+                  }
+                });
               }
+              state.projects[existingIdx] = { ...state.projects[existingIdx], ...docData, id: docData.id, chats: incomingChats };
+              hasChanges = true;
             } else {
               state.projects.push(docData);
               hasChanges = true;
             }
           } else if (change.type === 'removed') {
             const beforeLen = state.projects.length;
-            state.projects = state.projects.filter(p => p.id !== docData.id);
+            state.projects = state.projects.filter(p => p.id !== docData.id && String(p.id) !== String(docData.id));
             if (state.projects.length !== beforeLen) {
               hasChanges = true;
             }
@@ -1237,17 +1523,25 @@
 
         if (hasChanges) {
           saveState();
+          // Always keep home dashboard stats, pending tasks, and project group cards live
+          renderHome();
+
           if (state.activeProjectId) {
-            const currentProj = state.projects.find(p => p.id === state.activeProjectId);
+            const currentProj = state.projects.find(p => p.id === state.activeProjectId || String(p.id) === String(state.activeProjectId));
             if (currentProj) {
               syncProjectMemberAvatarsFromFirestore(currentProj);
               renderProjectDetail(currentProj);
+              if (state.activeProjectTab === 'chats') {
+                scrollChatToBottom();
+              }
             } else {
               navigateToHome();
             }
-          } else {
-            renderHome();
           }
+
+          // Live update task detail modal if open
+          refreshOpenTaskDetailModal();
+
           checkDeadlineNotifications();
           updateNotificationBell();
         }
@@ -2182,6 +2476,7 @@
 
   function handleLogout() {
     stopPresenceHeartbeat();
+    unsubscribeActiveProjectDoc();
     if (firestoreProjectsUnsubscribe) {
       try { firestoreProjectsUnsubscribe(); } catch(e){}
       firestoreProjectsUnsubscribe = null;
@@ -2295,6 +2590,7 @@
   }
 
   function navigateToHome() {
+    unsubscribeActiveProjectDoc();
     state.activeProjectId = null;
     document.getElementById('project-detail-view').style.display = 'none';
     document.getElementById('home-view').style.display = 'block';
@@ -2319,6 +2615,7 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     renderProjectDetail(project);
+    subscribeToActiveProjectDoc(projectId);
     if (state.activeProjectTab === 'chats') {
       markProjectChatsAsSeen(projectId);
       clearChatNotificationsForProject(projectId);
@@ -2395,24 +2692,41 @@
   // =========================================================
   function isUserMemberOfProject(project, user) {
     if (!project || !user) return false;
-    const userId = user.id || user.uid;
-    const userEmail = getCurrentUserEmail(user);
+    const userId = (user.id || user.uid || '').toString();
+    const userEmail = getCurrentUserEmail(user).toLowerCase().trim();
 
-    // 1. Check if user is in project.members list by ID or email
+    // 1. Check if user is in project.members list by ID, email, or name
     if (project.members && Array.isArray(project.members)) {
       const isMember = project.members.some(m => {
-        if (m.id && userId && m.id === userId) return true;
-        if (m.email && userEmail && m.email.trim().toLowerCase() === userEmail) return true;
+        if (!m) return false;
+        const mId = (typeof m === 'object' ? (m.id || m.uid || '') : '').toString();
+        const mEmail = (typeof m === 'object' ? (m.email || '') : (typeof m === 'string' ? m : '')).trim().toLowerCase();
+        if (mId && userId && mId === userId) return true;
+        if (mEmail && userEmail && mEmail === userEmail) return true;
         return false;
       });
       if (isMember) return true;
     }
 
-    // 2. Check if user is the project creator
-    if (project.creatorId && userId && String(project.creatorId) === String(userId)) {
+    // 2. Check if user is the project creator or owner
+    if (project.creatorId && userId && String(project.creatorId) === userId) {
       return true;
     }
     if (project.creatorEmail && userEmail && project.creatorEmail.trim().toLowerCase() === userEmail) {
+      return true;
+    }
+    if (project.ownerId && userId && String(project.ownerId) === userId) {
+      return true;
+    }
+    if (project.ownerEmail && userEmail && project.ownerEmail.trim().toLowerCase() === userEmail) {
+      return true;
+    }
+
+    // 3. Direct memberEmails / memberUids check from Firestore
+    if (userEmail && Array.isArray(project.memberEmails) && project.memberEmails.map(e => String(e).toLowerCase().trim()).includes(userEmail)) {
+      return true;
+    }
+    if (userId && Array.isArray(project.memberUids) && project.memberUids.map(u => String(u).trim()).includes(userId)) {
       return true;
     }
 
@@ -5336,6 +5650,7 @@
     saveState();
     syncProjectToFirestore(project);
     renderProjectDetail(project);
+    renderHome();
 
     // If detail modal is open for this task, update completed date element
     if (state.activeDetailTaskId === taskId) {
@@ -5368,14 +5683,8 @@
     return false;
   }
 
-  function openTaskDetailModal(projectId, taskId) {
-    const project = state.projects.find(p => p.id === projectId);
-    if (!project) return;
-    const task = (project.tasks || []).find(t => t.id === taskId);
-    if (!task) return;
-
-    state.activeDetailProjectId = projectId;
-    state.activeDetailTaskId = taskId;
+  function populateTaskDetailModal(project, task) {
+    if (!project || !task) return;
 
     // Normalize task subtasks and comments if needed
     if (!task.subtasks) task.subtasks = [];
@@ -5393,7 +5702,7 @@
 
     if (titleEl) titleEl.innerText = task.title;
     if (priorityBadge) {
-      priorityBadge.innerText = task.priority;
+      priorityBadge.innerText = task.priority || 'Medium';
       priorityBadge.className = `badge-priority ${(task.priority || 'medium').toLowerCase()}`;
     }
     if (projectTag) projectTag.innerText = project.name;
@@ -5607,7 +5916,43 @@
     `;
 
     if (headerDeleteContainer) headerDeleteContainer.innerHTML = deleteBtnHtml;
+  }
 
+  function refreshOpenTaskDetailModal(project) {
+    if (!state.activeDetailTaskId) return;
+    const modalEl = document.getElementById('modal-task-detail');
+    if (!modalEl || !modalEl.classList.contains('open')) {
+      state.activeDetailTaskId = null;
+      state.activeDetailProjectId = null;
+      return;
+    }
+
+    const proj = project || state.projects.find(p => (p.tasks || []).some(t => t && (t.id === state.activeDetailTaskId || String(t.id) === String(state.activeDetailTaskId))));
+    if (!proj) return;
+    const task = (proj.tasks || []).find(t => t && (t.id === state.activeDetailTaskId || String(t.id) === String(state.activeDetailTaskId)));
+    if (task) {
+      populateTaskDetailModal(proj, task);
+    } else {
+      closeModal('modal-task-detail');
+      state.activeDetailTaskId = null;
+      state.activeDetailProjectId = null;
+      showToast('The deliverable you were viewing was removed by a team member.', 'info');
+    }
+  }
+
+  // Alias for backwards compatibility
+  const renderSubtasks = renderTaskSubtasks;
+
+  function openTaskDetailModal(projectId, taskId) {
+    const project = state.projects.find(p => p.id === projectId || String(p.id) === String(projectId));
+    if (!project) return;
+    const task = (project.tasks || []).find(t => t.id === taskId || String(t.id) === String(taskId));
+    if (!task) return;
+
+    state.activeDetailProjectId = projectId;
+    state.activeDetailTaskId = taskId;
+
+    populateTaskDetailModal(project, task);
     openModal('modal-task-detail');
   }
 
@@ -6156,11 +6501,15 @@
 
     let html = '';
     project.chats.forEach(msg => {
-      const isSystem = msg.senderId === 'system';
+      const msgSenderId = msg.senderId ? String(msg.senderId) : (msg.authorId ? String(msg.authorId) : '');
+      const msgSenderEmail = (msg.senderEmail || msg.authorEmail || '').toLowerCase().trim();
+      const msgSenderName = (msg.senderName || msg.authorName || '').toLowerCase().trim();
+
+      const isSystem = msgSenderId === 'system';
       const isOwn = !isSystem && Boolean(
         currentUid && (
-          String(msg.senderId) === String(currentUid) ||
-          (msg.senderEmail && currentEmail && msg.senderEmail.toLowerCase().trim() === currentEmail)
+          msgSenderId === String(currentUid) ||
+          (msgSenderEmail && currentEmail && msgSenderEmail === currentEmail)
         )
       );
 
@@ -6176,33 +6525,33 @@
       } else {
         const isSelf = isOwn || Boolean(
           state.currentUser && (
-            (msg.senderId && currentUid && String(msg.senderId) === String(currentUid)) ||
-            (msg.senderEmail && currentEmail && msg.senderEmail.toLowerCase().trim() === currentEmail) ||
-            (msg.senderName && currentName && msg.senderName.toLowerCase().trim() === currentName)
+            (msgSenderId && currentUid && msgSenderId === String(currentUid)) ||
+            (msgSenderEmail && currentEmail && msgSenderEmail === currentEmail) ||
+            (msgSenderName && currentName && msgSenderName === currentName)
           )
         );
 
         let senderMember = null;
         if (project.members) {
           senderMember = project.members.find(m =>
-            (m.id && msg.senderId && String(m.id) === String(msg.senderId)) ||
-            (m.email && msg.senderEmail && m.email.toLowerCase().trim() === msg.senderEmail.toLowerCase().trim()) ||
+            (m.id && msgSenderId && String(m.id) === msgSenderId) ||
+            (m.email && msgSenderEmail && m.email.toLowerCase().trim() === msgSenderEmail) ||
             (isSelf && (m.id === currentUid || (m.email && currentEmail && m.email.toLowerCase().trim() === currentEmail))) ||
-            (m.name && msg.senderName && m.name.toLowerCase().trim() === msg.senderName.toLowerCase().trim())
+            (m.name && msgSenderName && m.name.toLowerCase().trim() === msgSenderName)
           );
         }
 
         const liveAvatar = (isSelf && state.currentUser?.avatar) ||
           (senderMember && senderMember.avatar) ||
-          (msg.senderId && localStorage.getItem('pulsepm_custom_avatar_' + msg.senderId)) ||
-          msg.senderAvatar;
+          (msgSenderId && localStorage.getItem('pulsepm_custom_avatar_' + msgSenderId)) ||
+          msg.senderAvatar || msg.authorAvatar;
 
         const liveName = (isSelf && state.currentUser?.name) ||
           (senderMember && senderMember.name) ||
-          (msg.senderId && localStorage.getItem('pulsepm_custom_name_' + msg.senderId)) ||
-          msg.senderName;
+          (msgSenderId && localStorage.getItem('pulsepm_custom_name_' + msgSenderId)) ||
+          msg.senderName || msg.authorName;
 
-        const senderPresence = getMemberPresence(senderMember || (isSelf ? state.currentUser : { id: msg.senderId, name: liveName, avatar: liveAvatar }));
+        const senderPresence = getMemberPresence(senderMember || (isSelf ? state.currentUser : { id: msgSenderId, name: liveName, avatar: liveAvatar }));
 
         let statusHtml = '';
         if (isSelf) {
@@ -6224,7 +6573,7 @@
         }
 
         html += `
-          <div class="chat-message-item ${isSelf ? 'own' : ''}">
+          <div class="chat-message-item ${isSelf ? 'own' : ''}" data-msg-id="${escapeHtml(msg.id || '')}">
             <div class="chat-avatar-wrap">
               <div class="chat-avatar" title="${escapeHtml(liveName)}">${renderAvatarInnerHtml(liveAvatar, liveName)}</div>
               <span class="presence-dot ${senderPresence.status}" title="${escapeHtml(senderPresence.tooltip)}"></span>
@@ -6558,6 +6907,10 @@
       senderEmail: currentEmail,
       senderName: state.currentUser.name,
       senderAvatar: state.currentUser.avatar,
+      authorId: currentUid,
+      authorEmail: currentEmail,
+      authorName: state.currentUser.name,
+      authorAvatar: state.currentUser.avatar,
       text: text,
       timestamp: new Date().toISOString(),
       status: 'sending',
@@ -6620,7 +6973,8 @@
 
   function updateWebChatMsgStatusUI(msgId, status) {
     if (!msgId) return;
-    const el = document.getElementById('web-chat-msg-status-' + msgId);
+    const el = document.getElementById('web-chat-msg-status-' + msgId) ||
+               document.querySelector(`[data-msg-id="${msgId}"] .chat-msg-status`);
     if (!el) return;
     if (status === 'sending') {
       el.className = 'chat-msg-status status-sending';
@@ -6638,32 +6992,65 @@
   }
 
   function syncProjectChatFastWeb(project, newMsg) {
-    if (!isFirebaseLive || !firebaseDb || !project || !project.id) {
-      if (newMsg) {
-        newMsg.status = 'delivered';
-        updateWebChatMsgStatusUI(newMsg.id, 'delivered');
+    if (!newMsg) return;
+
+    function markMessageDelivered() {
+      newMsg.status = 'delivered';
+      if (project && Array.isArray(project.chats)) {
+        const found = project.chats.find(c => c && c.id === newMsg.id);
+        if (found) found.status = 'delivered';
       }
+      const stProj = state.projects.find(p => p.id === project.id);
+      if (stProj && Array.isArray(stProj.chats)) {
+        const found = stProj.chats.find(c => c && c.id === newMsg.id);
+        if (found) found.status = 'delivered';
+      }
+      updateWebChatMsgStatusUI(newMsg.id, 'delivered');
+      saveState();
+    }
+
+    // Broadcast immediately to BroadcastChannel (instant multi-tab sync)
+    if (pulseLiveSyncChannel) {
+      try {
+        pulseLiveSyncChannel.postMessage({
+          type: 'NEW_CHAT_MESSAGE',
+          projectId: project.id,
+          message: newMsg,
+          timestamp: Date.now()
+        });
+      } catch (e) {}
+    }
+
+    // Safety fallback: ensure UI transitions to delivered within 800ms
+    const safetyTimer = setTimeout(() => {
+      markMessageDelivered();
+    }, 800);
+
+    if (!isFirebaseLive || !firebaseDb || !project || !project.id) {
+      clearTimeout(safetyTimer);
+      markMessageDelivered();
       return;
     }
 
-    const cleanData = sanitizeProjectForFirestore(project);
-    const cleanMsg = JSON.parse(JSON.stringify(newMsg));
-    cleanMsg.status = 'delivered';
+    const cleanChats = JSON.parse(JSON.stringify(project.chats || [])).map(c => {
+      if (c && c.id === newMsg.id) {
+        return { ...c, status: 'delivered' };
+      }
+      return c;
+    });
 
-    firebaseDb.collection('projects').doc(project.id).update({
-      chats: firebase.firestore.FieldValue.arrayUnion(cleanMsg),
-      updatedAt: new Date().toISOString(),
-      memberEmails: cleanData ? cleanData.memberEmails : [],
-      memberUids: cleanData ? cleanData.memberUids : []
-    }).then(() => {
-      newMsg.status = 'delivered';
-      updateWebChatMsgStatusUI(newMsg.id, 'delivered');
-      saveState();
-    }).catch(err => {
-      console.warn('[Web App] Fast chat write fallback:', err);
+    firebaseDb.collection('projects').doc(project.id).set({
+      chats: cleanChats,
+      updatedAt: new Date().toISOString()
+    }, { merge: true })
+    .then(() => {
+      clearTimeout(safetyTimer);
+      markMessageDelivered();
+    })
+    .catch(err => {
+      console.warn('[Web App] Fast chat write note, fallback:', err);
       syncProjectToFirestore(project);
-      newMsg.status = 'delivered';
-      updateWebChatMsgStatusUI(newMsg.id, 'delivered');
+      markMessageDelivered();
     });
   }
 
@@ -8205,6 +8592,7 @@
     descInput.value = '';
 
     renderProjectDetail(project);
+    renderHome();
     if (isAssignedToSelf) {
       showToast(`Task created and assigned to you!`, 'success');
     } else {
@@ -10215,10 +10603,16 @@
   function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) modal.classList.remove('open');
+    if (modalId === 'modal-task-detail') {
+      state.activeDetailTaskId = null;
+      state.activeDetailProjectId = null;
+    }
   }
 
   function closeAllModals() {
     document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.remove('open'));
+    state.activeDetailTaskId = null;
+    state.activeDetailProjectId = null;
   }
 
   function showToast(message, type = 'info') {
@@ -10498,6 +10892,8 @@
     handleConfirmExitProject,
     isProjectOwner,
     openTaskDetailModal,
+    populateTaskDetailModal,
+    refreshOpenTaskDetailModal,
     toggleSubtask,
     handleAddSubtaskSubmit,
     handleDeleteSubtask,
