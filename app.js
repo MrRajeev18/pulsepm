@@ -607,6 +607,106 @@
     });
   }
 
+  function insertChatMentionTag(memberName) {
+    if (!memberName) return;
+    const input = document.getElementById('chat-message-input');
+    if (!input) return;
+    const tag = `@${memberName} `;
+    if (!input.value.includes(tag)) {
+      input.value = input.value ? `${input.value.trim()} ${tag}` : tag;
+    }
+    input.focus();
+    if (input.setSelectionRange) {
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
+  }
+
+  function renderProjectChatPresenceBar(project) {
+    const bar = document.getElementById('proj-chat-presence-bar');
+    if (!bar) return;
+    if (!project) {
+      bar.innerHTML = '';
+      return;
+    }
+
+    const activeUser = state.currentUser;
+    const members = (project && Array.isArray(project.members)) ? [...project.members] : [];
+
+    const userInList = activeUser && members.some(m =>
+      (m.id && activeUser.id && String(m.id) === String(activeUser.id)) ||
+      (m.email && activeUser.email && m.email.toLowerCase() === activeUser.email.toLowerCase()) ||
+      (m.name && activeUser.name && m.name.toLowerCase() === activeUser.name.toLowerCase())
+    );
+
+    if (!userInList && activeUser && activeUser.name) {
+      members.unshift({
+        id: activeUser.id || activeUser.uid,
+        name: activeUser.name,
+        email: activeUser.email,
+        avatar: activeUser.avatar,
+        isOnline: true
+      });
+    }
+
+    const presenceList = members.map(m => {
+      const isCurrentUser = Boolean(
+        activeUser && (
+          (m.id && activeUser.id && String(m.id) === String(activeUser.id)) ||
+          (m.email && activeUser.email && m.email.toLowerCase() === activeUser.email.toLowerCase()) ||
+          (m.name && activeUser.name && m.name.toLowerCase() === activeUser.name.toLowerCase())
+        )
+      );
+
+      const presence = isCurrentUser ? { status: 'online', isOnline: true } : getMemberPresence(m);
+
+      return {
+        name: m.name || 'Member',
+        avatar: m.avatar || '',
+        isOnline: presence.status === 'online' || presence.isOnline,
+        status: presence.status || 'offline',
+        isCurrentUser
+      };
+    });
+
+    // Sort so current user is first, then online members, then offline
+    presenceList.sort((a, b) => {
+      if (a.isCurrentUser) return -1;
+      if (b.isCurrentUser) return 1;
+      if (a.isOnline && !b.isOnline) return -1;
+      if (!a.isOnline && b.isOnline) return 1;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
+    const onlineCount = presenceList.filter(p => p.isOnline).length;
+    const offlineCount = presenceList.length - onlineCount;
+
+    bar.innerHTML = `
+      <div class="proj-chat-presence-top">
+        <span class="proj-chat-channel-tag">💬 #${escapeHtml((project.name || 'general').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 24))}</span>
+        <span class="proj-chat-presence-summary">
+          <span class="chat-status-dot-inline online"></span> ${onlineCount} online
+          ${offlineCount > 0 ? `· <span class="chat-status-dot-inline offline"></span> ${offlineCount} offline` : ''}
+        </span>
+      </div>
+      <div class="proj-chat-members-strip">
+        ${presenceList.map(p => {
+          const firstName = p.isCurrentUser ? 'You' : (p.name.split(' ')[0] || p.name);
+          const safeName = escapeHtml(p.name);
+          const mentionParam = p.isCurrentUser ? '' : escapeHtml(p.name);
+          return `
+            <div class="presence-pill-item" title="${safeName}: ${p.isOnline ? 'Active now' : 'Offline'}" onclick="window.App.insertChatMentionTag('${mentionParam}')">
+              <div class="presence-pill-avatar">
+                ${renderAvatarInnerHtml(p.avatar, p.name)}
+                <span class="presence-pill-dot ${p.isOnline ? 'online' : 'offline'}"></span>
+              </div>
+              <span>${escapeHtml(firstName)}</span>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
   function updateChatHeaderPresence(project) {
     if (!project) return;
     const onlinePill = document.getElementById('chat-online-pill');
@@ -629,6 +729,8 @@
       const total = (project.members || []).length;
       membersSubtitle.innerText = `${total} member${total === 1 ? '' : 's'} participating`;
     }
+
+    renderProjectChatPresenceBar(project);
   }
 
   function refreshPresenceUI() {
@@ -6007,6 +6109,22 @@
   // =========================================================
   // 9. CHAT SYSTEM
   // =========================================================
+  function formatChatTimestamp(ts) {
+    if (!ts) return 'Just now';
+    try {
+      let d;
+      if (typeof ts === 'object' && ts.seconds) {
+        d = new Date(ts.seconds * 1000);
+      } else {
+        d = new Date(ts);
+      }
+      if (isNaN(d.getTime())) return typeof ts === 'string' ? ts : 'Just now';
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      return typeof ts === 'string' ? ts : 'Just now';
+    }
+  }
+
   function renderProjectChats(project) {
     const container = document.getElementById('chat-messages-container');
     const channelTitle = document.getElementById('chat-channel-title');
@@ -6032,10 +6150,20 @@
       return;
     }
 
+    const currentUid = state.currentUser ? (state.currentUser.id || state.currentUser.uid) : null;
+    const currentEmail = (state.currentUser && state.currentUser.email ? state.currentUser.email.toLowerCase().trim() : '');
+    const currentName = (state.currentUser && state.currentUser.name ? state.currentUser.name.toLowerCase().trim() : '');
+
     let html = '';
     project.chats.forEach(msg => {
       const isSystem = msg.senderId === 'system';
-      const isOwn = !isSystem && (state.currentUser && (msg.senderId === state.currentUser.id || msg.senderId === state.currentUser.uid));
+      const isOwn = !isSystem && Boolean(
+        currentUid && (
+          String(msg.senderId) === String(currentUid) ||
+          (msg.senderEmail && currentEmail && msg.senderEmail.toLowerCase().trim() === currentEmail)
+        )
+      );
+
       if (isSystem) {
         html += `
           <div class="chat-message-item chat-message-system">
@@ -6048,17 +6176,19 @@
       } else {
         const isSelf = isOwn || Boolean(
           state.currentUser && (
-            (msg.senderId && (msg.senderId === state.currentUser.id || msg.senderId === state.currentUser.uid)) ||
-            (msg.senderName && state.currentUser.name && msg.senderName.toLowerCase() === state.currentUser.name.toLowerCase())
+            (msg.senderId && currentUid && String(msg.senderId) === String(currentUid)) ||
+            (msg.senderEmail && currentEmail && msg.senderEmail.toLowerCase().trim() === currentEmail) ||
+            (msg.senderName && currentName && msg.senderName.toLowerCase().trim() === currentName)
           )
         );
 
         let senderMember = null;
         if (project.members) {
           senderMember = project.members.find(m =>
-            (m.id && msg.senderId && m.id === msg.senderId) ||
-            (isSelf && (m.id === state.currentUser?.id || (m.email && state.currentUser?.email && m.email.toLowerCase() === state.currentUser.email.toLowerCase()))) ||
-            (m.name && msg.senderName && m.name.toLowerCase() === msg.senderName.toLowerCase())
+            (m.id && msg.senderId && String(m.id) === String(msg.senderId)) ||
+            (m.email && msg.senderEmail && m.email.toLowerCase().trim() === msg.senderEmail.toLowerCase().trim()) ||
+            (isSelf && (m.id === currentUid || (m.email && currentEmail && m.email.toLowerCase().trim() === currentEmail))) ||
+            (m.name && msg.senderName && m.name.toLowerCase().trim() === msg.senderName.toLowerCase().trim())
           );
         }
 
@@ -6074,6 +6204,25 @@
 
         const senderPresence = getMemberPresence(senderMember || (isSelf ? state.currentUser : { id: msg.senderId, name: liveName, avatar: liveAvatar }));
 
+        let statusHtml = '';
+        if (isSelf) {
+          const hasBeenRead = Array.isArray(msg.readBy) && msg.readBy.some(r =>
+            r && String(r) !== String(currentUid) && String(r).toLowerCase().trim() !== currentEmail
+          );
+
+          if (hasBeenRead) {
+            statusHtml = `<div class="chat-msg-status status-read" id="web-chat-msg-status-${msg.id}"><span class="chat-status-indicator">✓✓</span> Read</div>`;
+          } else if (msg.status === 'sending') {
+            statusHtml = `<div class="chat-msg-status status-sending" id="web-chat-msg-status-${msg.id}"><span class="chat-status-indicator">🕒</span> Sending...</div>`;
+          } else if (msg.status === 'sent') {
+            statusHtml = `<div class="chat-msg-status status-sent" id="web-chat-msg-status-${msg.id}"><span class="chat-status-indicator">✓</span> Sent</div>`;
+          } else {
+            statusHtml = `<div class="chat-msg-status status-delivered" id="web-chat-msg-status-${msg.id}"><span class="chat-status-indicator">✓✓</span> Delivered</div>`;
+          }
+        } else {
+          statusHtml = `<div class="chat-msg-status status-received"><span class="chat-status-indicator">✓</span> Delivered</div>`;
+        }
+
         html += `
           <div class="chat-message-item ${isSelf ? 'own' : ''}">
             <div class="chat-avatar-wrap">
@@ -6083,9 +6232,10 @@
             <div class="chat-body">
               <div class="chat-sender-info">
                 <span class="chat-sender-name">${escapeHtml(liveName)}</span>
-                <span class="chat-timestamp">${escapeHtml(msg.timestamp)}</span>
+                <span class="chat-timestamp">${escapeHtml(formatChatTimestamp(msg.timestamp))}</span>
               </div>
               <div class="chat-bubble">${formatChatMentions(escapeHtml(msg.text))}</div>
+              ${statusHtml}
             </div>
           </div>
         `;
@@ -6409,13 +6559,22 @@
       senderName: state.currentUser.name,
       senderAvatar: state.currentUser.avatar,
       text: text,
-      timestamp: 'Just now',
+      timestamp: new Date().toISOString(),
+      status: 'sending',
       isOwn: true,
       readBy: currentUid ? [currentUid] : []
     };
 
     project.chats.push(newMsg);
     markProjectChatsAsSeen(project.id);
+
+    // Optimistically render message immediately
+    saveState();
+    renderProjectChats(project);
+    scrollChatToBottom();
+
+    // Fast atomic sync to Firestore for instant zero-delay delivery
+    syncProjectChatFastWeb(project, newMsg);
 
     // Notify all other project members of the new chat message
     const isAllMsg = isBroadcastMention(text);
@@ -6457,10 +6616,55 @@
         }
       }
     });
+  }
 
-    saveState();
-    syncProjectToFirestore(project);
-    renderProjectChats(project);
+  function updateWebChatMsgStatusUI(msgId, status) {
+    if (!msgId) return;
+    const el = document.getElementById('web-chat-msg-status-' + msgId);
+    if (!el) return;
+    if (status === 'sending') {
+      el.className = 'chat-msg-status status-sending';
+      el.innerHTML = '<span class="chat-status-indicator">🕒</span> Sending...';
+    } else if (status === 'sent') {
+      el.className = 'chat-msg-status status-sent';
+      el.innerHTML = '<span class="chat-status-indicator">✓</span> Sent';
+    } else if (status === 'delivered') {
+      el.className = 'chat-msg-status status-delivered';
+      el.innerHTML = '<span class="chat-status-indicator">✓✓</span> Delivered';
+    } else if (status === 'read') {
+      el.className = 'chat-msg-status status-read';
+      el.innerHTML = '<span class="chat-status-indicator">✓✓</span> Read';
+    }
+  }
+
+  function syncProjectChatFastWeb(project, newMsg) {
+    if (!isFirebaseLive || !firebaseDb || !project || !project.id) {
+      if (newMsg) {
+        newMsg.status = 'delivered';
+        updateWebChatMsgStatusUI(newMsg.id, 'delivered');
+      }
+      return;
+    }
+
+    const cleanData = sanitizeProjectForFirestore(project);
+    const cleanMsg = JSON.parse(JSON.stringify(newMsg));
+    cleanMsg.status = 'delivered';
+
+    firebaseDb.collection('projects').doc(project.id).update({
+      chats: firebase.firestore.FieldValue.arrayUnion(cleanMsg),
+      updatedAt: new Date().toISOString(),
+      memberEmails: cleanData ? cleanData.memberEmails : [],
+      memberUids: cleanData ? cleanData.memberUids : []
+    }).then(() => {
+      newMsg.status = 'delivered';
+      updateWebChatMsgStatusUI(newMsg.id, 'delivered');
+      saveState();
+    }).catch(err => {
+      console.warn('[Web App] Fast chat write fallback:', err);
+      syncProjectToFirestore(project);
+      newMsg.status = 'delivered';
+      updateWebChatMsgStatusUI(newMsg.id, 'delivered');
+    });
   }
 
   function scrollChatToBottom() {
@@ -10414,6 +10618,9 @@
     stopPresenceHeartbeat,
     refreshPresenceUI,
     updateChatHeaderPresence,
+    renderProjectChatPresenceBar,
+    formatChatTimestamp,
+    insertChatMentionTag,
     renderProjectChats,
     getLocalPresenceMap,
     saveLocalPresenceMap,
