@@ -1098,6 +1098,9 @@
           }
 
           saveState();
+          syncPendingInvitationsWithNotifications(state.projects, state.currentUser);
+          syncAssignedTasksWithNotifications(state.projects, state.currentUser, true);
+          syncTaskStatusUpdatesWithNotifications(state.projects, state.currentUser, true);
           renderHome();
 
           if (state.activeProjectId === data.projectId || String(state.activeProjectId) === String(data.projectId)) {
@@ -1164,6 +1167,9 @@
         currentProj = merged;
 
         saveState();
+        syncPendingInvitationsWithNotifications(state.projects, state.currentUser);
+        syncAssignedTasksWithNotifications(state.projects, state.currentUser, true);
+        syncTaskStatusUpdatesWithNotifications(state.projects, state.currentUser, true);
 
         // Immediately refresh Home dashboard stats, counts, and project cards
         renderHome();
@@ -1198,11 +1204,11 @@
     if (!project) return null;
 
     const memberEmails = (project.members || [])
-      .map(m => (m.email || '').trim().toLowerCase())
+      .map(m => (typeof m === 'object' && m ? (m.email || '') : (typeof m === 'string' ? m : '')).trim().toLowerCase())
       .filter(Boolean);
 
     const memberUids = (project.members || [])
-      .map(m => (m.id || m.uid || '').toString())
+      .map(m => (typeof m === 'object' && m ? (m.id || m.uid || '') : '').toString())
       .filter(Boolean);
 
     if (project.creatorId && !memberUids.includes(project.creatorId.toString())) {
@@ -1213,6 +1219,38 @@
       if (!memberEmails.includes(normCreatorEmail)) {
         memberEmails.push(normCreatorEmail);
       }
+    }
+    if (project.ownerId && !memberUids.includes(project.ownerId.toString())) {
+      memberUids.push(project.ownerId.toString());
+    }
+    if (project.ownerEmail) {
+      const normOwnerEmail = project.ownerEmail.trim().toLowerCase();
+      if (!memberEmails.includes(normOwnerEmail)) {
+        memberEmails.push(normOwnerEmail);
+      }
+    }
+
+    // Include task assignees and creators so all project participants are covered
+    if (Array.isArray(project.tasks)) {
+      project.tasks.forEach(t => {
+        if (!t) return;
+        if (t.assigneeEmail) {
+          const normAEmail = t.assigneeEmail.trim().toLowerCase();
+          if (normAEmail && !memberEmails.includes(normAEmail)) memberEmails.push(normAEmail);
+        }
+        if (t.assigneeId) {
+          const normAId = String(t.assigneeId).trim();
+          if (normAId && !memberUids.includes(normAId)) memberUids.push(normAId);
+        }
+        if (t.creatorEmail) {
+          const normCEmail = t.creatorEmail.trim().toLowerCase();
+          if (normCEmail && !memberEmails.includes(normCEmail)) memberEmails.push(normCEmail);
+        }
+        if (t.creatorId) {
+          const normCId = String(t.creatorId).trim();
+          if (normCId && !memberUids.includes(normCId)) memberUids.push(normCId);
+        }
+      });
     }
 
     const inviteeEmails = (project.pendingInvitations || [])
@@ -1428,8 +1466,12 @@
               const oldTask = prevTasks.find(t => t && (t.id === newTask.id || String(t.id) === String(newTask.id)));
               const isAssignedToMe = isTaskAssignedToUser(newTask, state.currentUser);
 
-              if (!oldTask && isAssignedToMe) {
-                const creator = newTask.creatorName || 'A teammate';
+              // Avoid self-notifications if the current user created or assigned this task
+              const isSelf = (newTask.assignedBy && String(newTask.assignedBy) === String(currentUid)) ||
+                             (!newTask.assignedBy && newTask.creatorId && String(newTask.creatorId) === String(currentUid));
+
+              if (!oldTask && isAssignedToMe && !isSelf) {
+                const creator = newTask.assignedByName || newTask.creatorName || 'A teammate';
                 createNotification({
                   type: 'task_assigned',
                   recipientId: currentUid,
@@ -1439,30 +1481,33 @@
                   message: `📋 ${creator} assigned you "${newTask.title}" in ${docData.name}`
                 });
                 showToast(`📋 ${creator} assigned you "${newTask.title}"`, 'info');
+                sendDesktopNotification({
+                  title: `Task Assigned (${docData.name})`,
+                  body: `${creator} assigned you "${newTask.title}"`,
+                  projectId: docData.id,
+                  taskId: newTask.id,
+                  bypassFocusCheck: true
+                });
               } else if (oldTask) {
                 const wasAssignedToMe = isTaskAssignedToUser(oldTask, state.currentUser);
-                if (!wasAssignedToMe && isAssignedToMe) {
+                if (!wasAssignedToMe && isAssignedToMe && !isSelf) {
+                  const assigner = newTask.assignedByName || newTask.creatorName || 'A teammate';
                   createNotification({
                     type: 'task_assigned',
                     recipientId: currentUid,
                     recipientEmail: currentEmail,
                     projectId: docData.id,
                     taskId: newTask.id,
-                    message: `📋 You were assigned deliverable "${newTask.title}" in ${docData.name}`
+                    message: `📋 ${assigner} assigned you "${newTask.title}" in ${docData.name}`
                   });
                   showToast(`📋 Assigned to you: "${newTask.title}"`, 'info');
-                }
-
-                if (oldTask.status !== newTask.status && newTask.status === 'completed') {
-                  createNotification({
-                    type: 'task_completed',
-                    recipientId: currentUid,
-                    recipientEmail: currentEmail,
+                  sendDesktopNotification({
+                    title: `Task Assigned (${docData.name})`,
+                    body: `${assigner} assigned you "${newTask.title}"`,
                     projectId: docData.id,
                     taskId: newTask.id,
-                    message: `✅ Deliverable "${newTask.title}" was marked completed in ${docData.name}`
+                    bypassFocusCheck: true
                   });
-                  showToast(`✅ "${newTask.title}" completed in ${docData.name}`, 'success');
                 }
 
                 const oldComments = Array.isArray(oldTask.comments) ? oldTask.comments : [];
@@ -1518,11 +1563,14 @@
           }
         });
 
+        const wasInitial = isInitialSnapshot;
         isInitialSnapshot = false;
 
         if (hasChanges) {
           saveState();
           syncPendingInvitationsWithNotifications(state.projects, user);
+          syncAssignedTasksWithNotifications(state.projects, user, !wasInitial);
+          syncTaskStatusUpdatesWithNotifications(state.projects, user, !wasInitial);
           // Always keep home dashboard stats, pending tasks, and project group cards live
           renderHome();
 
@@ -2148,6 +2196,9 @@
     navigateToHome();
     setupProjectsFirestoreSync(user);
     migrateLocalProjectsToFirestore(user);
+    syncPendingInvitationsWithNotifications(state.projects, unifiedUser);
+    syncAssignedTasksWithNotifications(state.projects, unifiedUser, false);
+    syncTaskStatusUpdatesWithNotifications(state.projects, unifiedUser, false);
     checkDeadlineNotifications();
     updateNotificationBell();
     showToast(`✨ Connected as ${unifiedUser.name} via ${methodLabel}!`, 'success');
@@ -2536,6 +2587,9 @@
       saveState();
       updateNavigationUser();
       navigateToHome();
+      syncPendingInvitationsWithNotifications(state.projects, state.currentUser);
+      syncAssignedTasksWithNotifications(state.projects, state.currentUser, false);
+      syncTaskStatusUpdatesWithNotifications(state.projects, state.currentUser, false);
       checkDeadlineNotifications();
       updateNotificationBell();
     }
@@ -2773,42 +2827,81 @@
   // =========================================================
   function isUserMemberOfProject(project, user) {
     if (!project || !user) return false;
-    const userId = (user.id || user.uid || '').toString();
+    const userId = (user.id || user.uid || '').toString().trim();
     const userEmail = getCurrentUserEmail(user).toLowerCase().trim();
+    const userName = (user.name || '').toLowerCase().trim();
 
-    // 1. Check if user is in project.members list by ID, email, or name
-    if (project.members && Array.isArray(project.members)) {
-      const isMember = project.members.some(m => {
-        if (!m) return false;
-        const mId = (typeof m === 'object' ? (m.id || m.uid || '') : '').toString();
-        const mEmail = (typeof m === 'object' ? (m.email || '') : (typeof m === 'string' ? m : '')).trim().toLowerCase();
-        if (mId && userId && mId === userId) return true;
-        if (mEmail && userEmail && mEmail === userEmail) return true;
-        return false;
-      });
-      if (isMember) return true;
-    }
-
-    // 2. Check if user is the project creator or owner
-    if (project.creatorId && userId && String(project.creatorId) === userId) {
+    // 1. Check if user is the project creator or owner
+    if (project.creatorId && userId && String(project.creatorId).trim() === userId) {
       return true;
     }
     if (project.creatorEmail && userEmail && project.creatorEmail.trim().toLowerCase() === userEmail) {
       return true;
     }
-    if (project.ownerId && userId && String(project.ownerId) === userId) {
+    if (project.ownerId && userId && String(project.ownerId).trim() === userId) {
       return true;
     }
     if (project.ownerEmail && userEmail && project.ownerEmail.trim().toLowerCase() === userEmail) {
       return true;
     }
 
-    // 3. Direct memberEmails / memberUids check from Firestore
+    // 2. Direct memberEmails / memberUids check from Firestore
     if (userEmail && Array.isArray(project.memberEmails) && project.memberEmails.map(e => String(e).toLowerCase().trim()).includes(userEmail)) {
       return true;
     }
     if (userId && Array.isArray(project.memberUids) && project.memberUids.map(u => String(u).trim()).includes(userId)) {
       return true;
+    }
+
+    // 3. Check if user is in project.members list by ID, email, or name
+    if (project.members && Array.isArray(project.members)) {
+      const isMember = project.members.some(m => {
+        if (!m) return false;
+        if (typeof m === 'object') {
+          const mId = (m.id || m.uid || '').toString().trim();
+          const mEmail = (m.email || '').trim().toLowerCase();
+          const mName = (m.name || '').trim().toLowerCase();
+          if (mId && userId && mId === userId) return true;
+          if (mEmail && userEmail && mEmail === userEmail) return true;
+          if (mName && userName && !isRoleName(mName) && mName === userName) return true;
+        } else if (typeof m === 'string') {
+          const str = m.trim().toLowerCase();
+          if (userEmail && str === userEmail) return true;
+          if (userName && str === userName) return true;
+          if (userId && str === userId) return true;
+        }
+        return false;
+      });
+      if (isMember) return true;
+    }
+
+    // 4. Check if user is assigned to or created any task in this project
+    if (Array.isArray(project.tasks)) {
+      const isTaskParticipant = project.tasks.some(t => {
+        if (!t) return false;
+        if (isTaskAssignedToUser(t, user)) return true;
+        const aId = t.assigneeId ? String(t.assigneeId).trim() : '';
+        const aEmail = (t.assigneeEmail || '').toLowerCase().trim();
+        const aName = (t.assigneeName || '').toLowerCase().trim();
+        if (aId && userId && aId === userId) return true;
+        if (aEmail && userEmail && aEmail === userEmail) return true;
+        if (aName && userName && aName === userName) return true;
+        if (t.creatorId && userId && String(t.creatorId).trim() === userId) return true;
+        if (t.creatorEmail && userEmail && t.creatorEmail.trim().toLowerCase() === userEmail) return true;
+        return false;
+      });
+      if (isTaskParticipant) return true;
+    }
+
+    // 5. Check pending invitations
+    if (Array.isArray(project.pendingInvitations)) {
+      const isInvited = project.pendingInvitations.some(inv => {
+        if (!inv || (inv.status && inv.status !== 'pending')) return false;
+        const invEmail = (inv.inviteeEmail || '').toLowerCase().trim();
+        const invId = inv.inviteeId ? String(inv.inviteeId).trim() : '';
+        return (invEmail && userEmail && invEmail === userEmail) || (invId && userId && invId === userId);
+      });
+      if (isInvited) return true;
     }
 
     return false;
@@ -5671,8 +5764,16 @@
       return;
     }
 
+    const activeUid = state.currentUser ? String(state.currentUser.id || state.currentUser.uid || '') : '';
+    const activeUname = state.currentUser ? state.currentUser.name : 'Teammate';
+    const activeEmail = state.currentUser ? getCurrentUserEmail(state.currentUser) : '';
+
     task.status = isChecked ? 'completed' : 'pending';
     task.completed = Boolean(isChecked);
+    task.statusUpdatedBy = activeUid;
+    task.statusUpdatedByName = activeUname;
+    task.statusUpdatedByEmail = activeEmail;
+    task.statusUpdatedAt = new Date().toISOString();
     if (isChecked) {
       if (!task.completedDate) {
         task.completedDate = new Date().toISOString().split('T')[0];
@@ -5680,6 +5781,17 @@
     } else {
       task.completedDate = null;
     }
+
+    if (!Array.isArray(project.activity)) project.activity = [];
+    project.activity.unshift({
+      id: 'act-' + Date.now(),
+      text: isChecked
+        ? `${activeUname} completed "${task.title}"`
+        : `${activeUname} restored "${task.title}" to pending`,
+      time: 'Just now',
+      icon: 'task'
+    });
+
     saveState();
     syncProjectToFirestore(project);
     renderHome();
@@ -5708,8 +5820,16 @@
       return;
     }
 
+    const activeUid = state.currentUser ? String(state.currentUser.id || state.currentUser.uid || '') : '';
+    const activeUname = state.currentUser ? state.currentUser.name : 'Teammate';
+    const activeEmail = state.currentUser ? getCurrentUserEmail(state.currentUser) : '';
+
     task.status = newStatus;
     task.completed = (newStatus === 'completed');
+    task.statusUpdatedBy = activeUid;
+    task.statusUpdatedByName = activeUname;
+    task.statusUpdatedByEmail = activeEmail;
+    task.statusUpdatedAt = new Date().toISOString();
     if (newStatus === 'completed') {
       if (!task.completedDate) {
         task.completedDate = new Date().toISOString().split('T')[0];
@@ -5719,11 +5839,12 @@
     }
 
     // Add activity
+    if (!Array.isArray(project.activity)) project.activity = [];
     project.activity.unshift({
       id: 'act-' + Date.now(),
       text: newStatus === 'completed'
-        ? `${state.currentUser.name} completed "${task.title}" on ${formatDate(task.completedDate)}`
-        : `${state.currentUser.name} moved "${task.title}" to ${newStatus.replace('_', ' ')}`,
+        ? `${activeUname} completed "${task.title}" on ${formatDate(task.completedDate)}`
+        : `${activeUname} moved "${task.title}" to ${newStatus.replace('_', ' ')}`,
       time: 'Just now',
       icon: 'task'
     });
@@ -6099,6 +6220,9 @@
     task.assigneeName = newMember.name;
     task.assigneeEmail = newMember.email || '';
     task.assigneeAvatar = newMember.avatar || '';
+    task.assignedBy = state.currentUser ? (state.currentUser.id || state.currentUser.uid) : '';
+    task.assignedByName = state.currentUser ? state.currentUser.name : 'Admin';
+    task.assignedAt = new Date().toISOString();
 
     project.activity.unshift({
       id: 'act-' + Date.now(),
@@ -8645,6 +8769,9 @@
       createdBy: selfId || state.currentUser.id,
       creatorName: state.currentUser.name || 'Admin',
       creatorEmail: state.currentUser.email || getCurrentUserEmail(state.currentUser) || '',
+      assignedBy: selfId || state.currentUser.id,
+      assignedByName: state.currentUser.name || 'Admin',
+      assignedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
       status: 'pending',
       subtasks: [],
@@ -8790,13 +8917,13 @@
     });
   }
 
-  function sendDesktopNotification({ title, body, icon, tag, projectId, bypassFocusCheck = false }) {
+  function sendDesktopNotification({ title, body, icon, tag, projectId, taskId = null, tab = null, bypassFocusCheck = false }) {
     if (!('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
 
-    // Do not show desktop popup if user is actively focused on the project's chat tab
+    // Do not show desktop popup if user is actively focused on the project's chat tab (unless it is a task alert)
     if (!bypassFocusCheck && !document.hidden && document.hasFocus()) {
-      if (state.activeProjectId === projectId && state.activeProjectTab === 'chats') {
+      if (state.activeProjectId === projectId && state.activeProjectTab === 'chats' && !taskId) {
         return;
       }
     }
@@ -8812,7 +8939,14 @@
         try { window.focus(); } catch (e) {}
         if (projectId) {
           openProject(projectId);
-          switchProjectTab('chats');
+          if (tab) {
+            switchProjectTab(tab);
+          } else if (taskId) {
+            switchProjectTab('mytasks');
+            setTimeout(() => openTaskDetailModal(projectId, taskId), 250);
+          } else {
+            switchProjectTab('chats');
+          }
         }
         notif.close();
       };
@@ -9085,15 +9219,12 @@
     createNotification({
       type: 'task_assigned',
       recipientId: assigneeMember.id,
+      recipientEmail: assigneeMember.email || getCurrentUserEmail(assigneeMember) || null,
       projectId: project.id,
       taskId: task.id,
       message: `📋 ${state.currentUser.name} assigned you "${task.title}" in ${project.name}`
     });
-    sendDesktopNotification({
-      title: `Task Assigned (${project.name})`,
-      body: `${state.currentUser.name} assigned you "${task.title}"`,
-      projectId: project.id
-    });
+    // Desktop notifications are delivered to the recipient's machine via real-time Firestore / BroadcastChannel sync
   }
 
   function notifyMentions(project, messageText) {
@@ -9132,11 +9263,14 @@
 
   function getMyNotifications() {
     if (!state.notifications || !state.currentUser) return [];
-    const uid = state.currentUser.id || state.currentUser.uid;
-    const email = getCurrentUserEmail();
+    const uid = String(state.currentUser.id || state.currentUser.uid || '').trim();
+    const email = (getCurrentUserEmail() || '').toLowerCase().trim();
     return state.notifications.filter(n => {
-      if (uid && n.recipientId && n.recipientId === uid) return true;
-      if (email && n.recipientEmail && n.recipientEmail.toLowerCase() === email) return true;
+      const recId = n.recipientId ? String(n.recipientId).trim() : '';
+      const recEmail = (n.recipientEmail || '').toLowerCase().trim();
+      if (recId && uid && recId === uid) return true;
+      if (recEmail && email && recEmail === email) return true;
+      if (!recId && !recEmail) return true;
       return false;
     });
   }
@@ -9198,12 +9332,17 @@
     saveState();
     updateNotificationBell();
 
-    // Navigate to relevant project and chat tab if it's a message
+    // Navigate to relevant project and chat/tasks tab
     if (notif.projectId) {
       closeNotificationDrawer();
       openProject(notif.projectId);
       if (notif.type === 'chat_message' || notif.type === 'mention') {
         switchProjectTab('chats');
+      } else if (notif.type === 'task_assigned' || notif.type === 'deadline_near' || notif.type === 'task_completed' || notif.type === 'task_comment' || notif.type === 'task_in_progress' || notif.type === 'task_status_updated') {
+        switchProjectTab('mytasks');
+        if (notif.taskId) {
+          setTimeout(() => openTaskDetailModal(notif.projectId, notif.taskId), 250);
+        }
       }
     }
     renderNotificationDrawer();
@@ -9268,6 +9407,10 @@
         typeIconHtml = `<span class="notif-type-icon notif-mention-icon" title="Direct @mention">@</span>`;
       } else {
         const typeIcon = n.type === 'task_assigned' ? '📋' :
+                         n.type === 'task_completed' ? '✅' :
+                         n.type === 'task_in_progress' ? '⚡' :
+                         n.type === 'task_status_updated' ? '🔄' :
+                         n.type === 'task_comment' ? '💬' :
                          n.type === 'deadline_near' ? '⏰' :
                          n.type === 'project_broadcast' ? '📢' :
                          n.type === 'project_deleted' ? '⚠️' :
@@ -10137,6 +10280,240 @@
     }
   }
 
+  function syncAssignedTasksWithNotifications(projectList, user, isLive = false) {
+    const activeUser = user || state.currentUser;
+    if (!activeUser) return;
+    const currentEmail = (getCurrentUserEmail(activeUser) || '').toLowerCase().trim();
+    const currentUid = String(activeUser.id || activeUser.uid || '').trim();
+    const currentName = (activeUser.name || '').toLowerCase().trim();
+    const projs = projectList || state.projects || [];
+
+    const seenStorageKey = `pulsepm_seen_assigned_tasks_${currentUid || currentEmail || 'default'}`;
+    let seenAssignments = [];
+    try {
+      seenAssignments = JSON.parse(localStorage.getItem(seenStorageKey) || '[]');
+    } catch (e) {
+      seenAssignments = [];
+    }
+    const seenSet = new Set(seenAssignments);
+
+    let changed = false;
+    let newlyAssignedCount = 0;
+    let lastNewTask = null;
+    let lastNewProj = null;
+
+    projs.forEach(p => {
+      if (!Array.isArray(p.tasks)) return;
+      p.tasks.forEach(task => {
+        if (!task || !task.id) return;
+
+        // Check if task is assigned to the current user
+        const isAssignedToMe = (
+          (task.assigneeId && currentUid && String(task.assigneeId) === currentUid) ||
+          (task.assigneeEmail && currentEmail && task.assigneeEmail.toLowerCase().trim() === currentEmail) ||
+          (task.assigneeName && currentName && task.assigneeName.toLowerCase().trim() === currentName)
+        );
+        if (!isAssignedToMe) return;
+
+        // Skip self-assignments
+        const creatorId = String(task.creatorId || '').trim();
+        const creatorEmail = String(task.creatorEmail || '').toLowerCase().trim();
+        const assignedBy = String(task.assignedBy || '').trim();
+        const assignedByName = (task.assignedByName || task.creatorName || '').toLowerCase().trim();
+        const isSelfAssigned = (
+          (assignedBy && currentUid && assignedBy === currentUid) ||
+          (!assignedBy && creatorId && currentUid && creatorId === currentUid) ||
+          (!assignedBy && creatorEmail && currentEmail && creatorEmail === currentEmail) ||
+          (assignedByName && currentName && assignedByName === currentName && (!assignedBy || assignedBy === currentUid))
+        );
+        if (isSelfAssigned) return;
+
+        const assignSig = `${p.id}_${task.id}_${task.assignedAt || task.createdAt || 'v1'}`;
+
+        if (!state.notifications) state.notifications = [];
+        const existing = state.notifications.find(n =>
+          n.type === 'task_assigned' &&
+          n.projectId === p.id &&
+          n.taskId === task.id
+        );
+
+        if (!existing) {
+          const assigner = task.assignedByName || task.creatorName || 'A teammate';
+          const notif = {
+            id: 'notif_task_assign_' + task.id + '_' + Date.now(),
+            type: 'task_assigned',
+            recipientId: currentUid,
+            recipientEmail: currentEmail,
+            projectId: p.id,
+            taskId: task.id,
+            assignedAt: task.assignedAt || task.createdAt || new Date().toISOString(),
+            message: `📋 ${assigner} assigned you "${task.title}" in ${p.name}`,
+            read: false,
+            createdAt: task.assignedAt || task.createdAt || new Date().toISOString()
+          };
+          state.notifications.unshift(notif);
+          changed = true;
+
+          if (isLive && !seenSet.has(assignSig)) {
+            newlyAssignedCount++;
+            lastNewTask = task;
+            lastNewProj = p;
+          }
+        }
+
+        seenSet.add(assignSig);
+      });
+    });
+
+    try {
+      localStorage.setItem(seenStorageKey, JSON.stringify(Array.from(seenSet).slice(-200)));
+    } catch (e) {}
+
+    if (changed) {
+      saveState();
+      updateNotificationBell();
+      renderNotificationDrawer();
+    }
+
+    if (newlyAssignedCount > 0 && lastNewTask && lastNewProj) {
+      const assigner = lastNewTask.assignedByName || lastNewTask.creatorName || 'A teammate';
+      showToast(`📋 ${assigner} assigned you "${lastNewTask.title}" in ${lastNewProj.name}`, 'info');
+      sendDesktopNotification({
+        title: `Task Assigned (${lastNewProj.name})`,
+        body: `${assigner} assigned you "${lastNewTask.title}"`,
+        projectId: lastNewProj.id,
+        taskId: lastNewTask.id,
+        bypassFocusCheck: true
+      });
+    }
+  }
+
+  function syncTaskStatusUpdatesWithNotifications(projectList, user, isLive = false) {
+    const activeUser = user || state.currentUser;
+    if (!activeUser) return;
+    const currentEmail = (getCurrentUserEmail(activeUser) || '').toLowerCase().trim();
+    const currentUid = String(activeUser.id || activeUser.uid || '').trim();
+    const projs = projectList || state.projects || [];
+
+    const seenStorageKey = `pulsepm_seen_task_statuses_${currentUid || currentEmail || 'default'}`;
+    let seenStatuses = [];
+    try {
+      seenStatuses = JSON.parse(localStorage.getItem(seenStorageKey) || '[]');
+    } catch (e) {
+      seenStatuses = [];
+    }
+    const seenSet = new Set(seenStatuses);
+
+    let changed = false;
+    let newStatusEvents = [];
+
+    const currentUserName = (activeUser.name || '').trim();
+
+    projs.forEach(p => {
+      // Must be a member of the project group
+      if (!isUserMemberOfProject(p, activeUser)) return;
+      if (!Array.isArray(p.tasks)) return;
+
+      p.tasks.forEach(task => {
+        if (!task || !task.id || !task.status) return;
+
+        const updatedBy = String(task.statusUpdatedBy || '').trim();
+        const updatedByEmail = String(task.statusUpdatedByEmail || '').trim().toLowerCase();
+        const updatedByName = (task.statusUpdatedByName || task.assigneeName || 'A teammate').trim();
+
+        // Skip self updates across UID, Email, and Name
+        const isSelf = 
+          (updatedBy && currentUid && updatedBy === currentUid) ||
+          (updatedByEmail && currentEmail && updatedByEmail === currentEmail) ||
+          (!updatedBy && !updatedByEmail && updatedByName && currentUserName && updatedByName.toLowerCase() === currentUserName.toLowerCase());
+
+        if (isSelf) return;
+
+        const statusUpdatedAt = task.statusUpdatedAt || task.completedDate || task.updatedAt || '';
+        const statusSig = `${p.id}_${task.id}_status_${task.status}_${statusUpdatedAt || 'latest'}`;
+
+        const existing = (state.notifications || []).find(n =>
+          (n.statusSignature && n.statusSignature === statusSig) ||
+          (n.projectId === p.id && n.taskId === task.id && n.statusUpdatedAt && n.statusUpdatedAt === statusUpdatedAt)
+        );
+
+        if (!existing) {
+          let notifType = 'task_status_updated';
+          let statusLabel = task.status;
+
+          if (task.status === 'completed' || task.status === 'done') {
+            notifType = 'task_completed';
+            statusLabel = 'Completed';
+          } else if (task.status === 'in_progress' || task.status === 'in-progress') {
+            notifType = 'task_in_progress';
+            statusLabel = 'In Progress';
+          } else if (task.status === 'pending' || task.status === 'todo') {
+            notifType = 'task_status_updated';
+            statusLabel = 'Pending';
+          } else if (task.status === 'review' || task.status === 'in_review') {
+            notifType = 'task_status_updated';
+            statusLabel = 'In Review';
+          } else {
+            statusLabel = (task.status || 'Updated').replace(/_/g, ' ');
+          }
+
+          const msg = (task.status === 'completed' || task.status === 'done')
+            ? `✅ ${updatedByName} completed task "${task.title}" in ${p.name}`
+            : (task.status === 'in_progress' || task.status === 'in-progress'
+              ? `⚡ ${updatedByName} moved task "${task.title}" to In Progress in ${p.name}`
+              : `🔄 ${updatedByName} moved task "${task.title}" to ${statusLabel} in ${p.name}`);
+
+          const notif = {
+            id: 'notif_status_' + task.id + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            type: notifType,
+            statusSignature: statusSig,
+            statusUpdatedAt: statusUpdatedAt,
+            recipientId: currentUid,
+            recipientEmail: currentEmail,
+            projectId: p.id,
+            taskId: task.id,
+            message: msg,
+            read: false,
+            createdAt: statusUpdatedAt || new Date().toISOString()
+          };
+
+          if (!state.notifications) state.notifications = [];
+          state.notifications.unshift(notif);
+          changed = true;
+
+          if (isLive && !seenSet.has(statusSig)) {
+            newStatusEvents.push({ task, project: p, msg, statusLabel });
+          }
+        }
+
+        seenSet.add(statusSig);
+      });
+    });
+
+    try {
+      localStorage.setItem(seenStorageKey, JSON.stringify(Array.from(seenSet).slice(-200)));
+    } catch (e) {}
+
+    if (changed) {
+      saveState();
+      updateNotificationBell();
+      renderNotificationDrawer();
+    }
+
+    if (newStatusEvents.length > 0) {
+      newStatusEvents.forEach(ev => {
+        showToast(ev.msg, (ev.task.status === 'completed' || ev.task.status === 'done') ? 'success' : 'info');
+        sendDesktopNotification({
+          title: `Task ${ev.statusLabel} (${ev.project.name})`,
+          body: ev.msg,
+          projectId: ev.project.id,
+          taskId: ev.task.id,
+          bypassFocusCheck: true
+        });
+      });
+    }
+  }
+
   function getMyPendingProjectInvitations(user = state.currentUser) {
     if (!user) return [];
     const currentEmail = (getCurrentUserEmail(user) || '').toLowerCase().trim();
@@ -10891,6 +11268,9 @@
       document.getElementById('main-app').style.display = 'flex';
       updateNavigationUser();
       navigateToHome();
+      syncPendingInvitationsWithNotifications(state.projects, state.currentUser);
+      syncAssignedTasksWithNotifications(state.projects, state.currentUser, false);
+      syncTaskStatusUpdatesWithNotifications(state.projects, state.currentUser, false);
       checkDeadlineNotifications();
       updateNotificationBell();
       startPresenceHeartbeat();
