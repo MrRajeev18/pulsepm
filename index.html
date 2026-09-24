@@ -11,7 +11,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=6.1">
+  <link rel="stylesheet" href="styles.css?v=7.0">
+
 </head>
 <body>
   <div id="app" class="app-root">
@@ -20,75 +21,134 @@
     <!-- 1. AUTHENTICATION VIEW                                   -->
     <!-- ========================================================= -->
     <section id="auth-view" class="view auth-container">
-      <div class="auth-card">
-        <div class="auth-header">
-          <div class="auth-logo-squircle">
-            <img src="assets/logo.png?v=2" alt="PulsePM Logo" class="auth-logo-img">
-          </div>
-          <h1 class="auth-brand-title">Pulse<span class="auth-brand-accent">PM</span></h1>
-          <div class="auth-company-badge">
-            <span class="by-label">By</span>
-            <span class="company-name">Synerbit (OPC) Pvt Ltd</span>
-          </div>
-          <p class="auth-brand-subtitle">Unified Mobile Project Management</p>
-        </div>
 
-        <!-- Segmented Tabs: Sign In / Create Account -->
-        <div class="auth-tabs" role="tablist">
-          <button type="button" class="auth-tab-btn active" id="web-auth-tab-signin" onclick="window.App.switchAuthMode('signin');" role="tab" aria-selected="true">
-            Sign In
-          </button>
-          <button type="button" class="auth-tab-btn" id="web-auth-tab-signup" onclick="window.App.switchAuthMode('signup');" role="tab" aria-selected="false">
-            Create Account
-          </button>
-        </div>
+      <!-- LEFT BRAND PANEL -->
+      <div class="auth-left-panel">
+        <!-- Animated floating orbs -->
+        <div class="auth-orb auth-orb-1"></div>
+        <div class="auth-orb auth-orb-2"></div>
+        <div class="auth-orb auth-orb-3"></div>
+        <div class="auth-orb auth-orb-4"></div>
 
-        <form id="form-login-main" onsubmit="event.preventDefault(); window.App.handleGmailLogin();">
-          <div id="web-auth-name-group" class="auth-form-group" style="display: none;">
-            <label class="auth-form-label" for="web-auth-name-input">Full Name *</label>
-            <input type="text" id="web-auth-name-input" class="auth-form-input" placeholder="Alex Morgan" autocomplete="name">
+        <div class="auth-left-content">
+          <!-- Brand block -->
+          <div class="auth-left-brand">
+            <div class="auth-left-logo-wrap">
+              <img src="assets/logo.png?v=2" alt="PulsePM Logo" class="auth-left-logo-img">
+            </div>
+            <h1 class="auth-left-title">Pulse<span class="auth-left-accent">PM</span></h1>
+            <p class="auth-left-tagline">Manage projects.<br>Empower teams.</p>
           </div>
 
-          <div class="auth-form-group">
-            <label class="auth-form-label" for="gmail-input">Email Address *</label>
-            <input type="email" id="gmail-input" class="auth-form-input" placeholder="name@company.com" required autocomplete="email">
+          <!-- Feature list -->
+          <ul class="auth-features-list">
+            <li class="auth-feature-item">
+              <span class="auth-feature-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span>Real-time sync across all devices</span>
+            </li>
+            <li class="auth-feature-item">
+              <span class="auth-feature-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span>Smart task assignment &amp; notifications</span>
+            </li>
+            <li class="auth-feature-item">
+              <span class="auth-feature-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span>Unified web &amp; mobile workspace</span>
+            </li>
+            <li class="auth-feature-item">
+              <span class="auth-feature-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span>Role-based access &amp; permissions</span>
+            </li>
+          </ul>
+
+          <!-- Bottom credit -->
+          <div class="auth-left-footer">
+            <span class="auth-left-footer-dot"></span>
+            <span>By <strong>Synerbit (OPC) Pvt Ltd</strong></span>
           </div>
-
-          <div class="auth-form-group">
-            <label class="auth-form-label" for="gmail-password">Password *</label>
-            <input type="password" id="gmail-password" class="auth-form-input" placeholder="........" required autocomplete="current-password">
-          </div>
-
-          <div id="web-auth-error-msg" class="auth-error-box" style="display: none;"></div>
-
-          <button type="submit" id="web-auth-submit-btn" class="auth-submit-btn">
-            Sign In to Workspace
-          </button>
-        </form>
-
-        <div class="auth-divider">
-          <div class="auth-divider-line"></div>
-          <span class="auth-divider-text">OR</span>
-          <div class="auth-divider-line"></div>
-        </div>
-
-        <!-- Google Authentication Button -->
-        <button type="button" class="auth-google-btn" onclick="window.App.handleGoogleLogin();">
-          <svg class="auth-google-icon" width="18" height="18" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
-            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/>
-            <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.14-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
-            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
-          </svg>
-          <span>Continue with Google</span>
-        </button>
-
-        <!-- Corporate Credit -->
-        <div class="auth-card-footer">
-          <span>By</span>
-          <strong>Synerbit (OPC) Pvt Ltd</strong>
         </div>
       </div>
+
+      <!-- RIGHT LOGIN PANEL -->
+      <div class="auth-right-panel">
+        <div class="auth-card">
+          <div class="auth-header">
+            <div class="auth-logo-squircle">
+              <img src="assets/logo.png?v=2" alt="PulsePM Logo" class="auth-logo-img">
+            </div>
+            <h1 class="auth-brand-title">Pulse<span class="auth-brand-accent">PM</span></h1>
+            <div class="auth-company-badge">
+              <span class="by-label">By</span>
+              <span class="company-name">Synerbit (OPC) Pvt Ltd</span>
+            </div>
+            <p class="auth-brand-subtitle">Welcome back! Sign in to your workspace.</p>
+          </div>
+
+          <!-- Segmented Tabs: Sign In / Create Account -->
+          <div class="auth-tabs" role="tablist">
+            <button type="button" class="auth-tab-btn active" id="web-auth-tab-signin" onclick="window.App.switchAuthMode('signin');" role="tab" aria-selected="true">
+              Sign In
+            </button>
+            <button type="button" class="auth-tab-btn" id="web-auth-tab-signup" onclick="window.App.switchAuthMode('signup');" role="tab" aria-selected="false">
+              Create Account
+            </button>
+          </div>
+
+          <form id="form-login-main" onsubmit="event.preventDefault(); window.App.handleGmailLogin();">
+            <div id="web-auth-name-group" class="auth-form-group" style="display: none;">
+              <label class="auth-form-label" for="web-auth-name-input">Full Name *</label>
+              <input type="text" id="web-auth-name-input" class="auth-form-input" placeholder="Alex Morgan" autocomplete="name">
+            </div>
+
+            <div class="auth-form-group">
+              <label class="auth-form-label" for="gmail-input">Email Address *</label>
+              <input type="email" id="gmail-input" class="auth-form-input" placeholder="name@company.com" required autocomplete="email">
+            </div>
+
+            <div class="auth-form-group">
+              <label class="auth-form-label" for="gmail-password">Password *</label>
+              <input type="password" id="gmail-password" class="auth-form-input" placeholder="........" required autocomplete="current-password">
+            </div>
+
+            <div id="web-auth-error-msg" class="auth-error-box" style="display: none;"></div>
+
+            <button type="submit" id="web-auth-submit-btn" class="auth-submit-btn">
+              Sign In to Workspace
+            </button>
+          </form>
+
+          <div class="auth-divider">
+            <div class="auth-divider-line"></div>
+            <span class="auth-divider-text">OR</span>
+            <div class="auth-divider-line"></div>
+          </div>
+
+          <!-- Google Authentication Button -->
+          <button type="button" class="auth-google-btn" onclick="window.App.handleGoogleLogin();">
+            <svg class="auth-google-icon" width="18" height="18" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/>
+              <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.14-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+            </svg>
+            <span>Continue with Google</span>
+          </button>
+
+          <!-- Corporate Credit -->
+          <div class="auth-card-footer">
+            <span>By</span>
+            <strong>Synerbit (OPC) Pvt Ltd</strong>
+          </div>
+        </div>
+      </div>
+
     </section>
 
     <!-- ========================================================= -->
@@ -365,7 +425,7 @@
             <button class="project-tab-btn" data-project-tab="chats" onclick="window.App.switchProjectTab('chats');">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               <span>Chats</span>
-              <span class="tab-badge" id="tab-chats-count">0</span>
+              <span class="tab-badge" id="tab-chats-count" style="display: none;">0</span>
             </button>
           </div>
         </div>
@@ -2578,6 +2638,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
-  <script src="app.js?v=6.9"></script>
+  <script src="app.js?v=7.5"></script>
 </body>
 </html>
