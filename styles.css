@@ -5130,7 +5130,119 @@ input:checked + .slider:before {
   transform: translateX(20px);
 }
 
+/* Settings Legal Links Section */
+.setting-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--text-muted);
+  margin: 20px 0 10px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.settings-legal-links {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.settings-legal-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--text-main);
+  background: var(--bg-subtle, #f8fafc);
+  border: 1px solid var(--border-color);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+.settings-legal-link:hover {
+  background: rgba(79, 70, 229, 0.06);
+  border-color: rgba(79, 70, 229, 0.25);
+  transform: translateX(2px);
+}
+
+.settings-legal-link-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(79, 70, 229, 0.08);
+  border: 1px solid rgba(79, 70, 229, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4f46e5;
+}
+
+.settings-legal-link-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-legal-link-text strong {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-main);
+  line-height: 1.2;
+}
+
+.settings-legal-link-text span {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-weight: 400;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-legal-link-arrow {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  opacity: 0.5;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.settings-legal-link:hover .settings-legal-link-arrow {
+  opacity: 1;
+  color: #4f46e5;
+  transform: translate(2px, -2px);
+}
+
+/* Dark theme overrides for legal links */
+[data-theme="dark"] .settings-legal-link {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .settings-legal-link:hover {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+[data-theme="dark"] .settings-legal-link-icon {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.25);
+  color: #a5b4fc;
+}
+
+[data-theme="dark"] .settings-legal-link:hover .settings-legal-link-arrow {
+  color: #a5b4fc;
+}
+
 /* Settings Danger Zone & Account Deletion */
+
 .settings-danger-zone {
   margin-top: 18px;
   padding: 16px;
