@@ -338,6 +338,19 @@
             state.currentUser.email = state.currentUser.identities.email;
           }
         }
+        // Normalize existing chats: any message from a prior session is already delivered (sent)
+        if (Array.isArray(state.projects)) {
+          state.projects.forEach(p => {
+            if (p && Array.isArray(p.chats)) {
+              p.chats.forEach(c => {
+                if (c && (!c.status || c.status === 'sending')) {
+                  c.status = 'sent';
+                  c.isLocalInFlight = false;
+                }
+              });
+            }
+          });
+        }
         // Simulated Teammate Responses default to OFF unless explicitly enabled by user
         const chatBotExplicitlyConfigured = localStorage.getItem('pulsepm_chatbot_explicit_config');
         if (chatBotExplicitlyConfigured === 'true') {
@@ -1065,16 +1078,42 @@
             }
           }
         } else if (data.type === 'CHAT_DELIVERED_ACK' && data.messageId) {
-          updateWebChatMsgStatusUI(data.messageId, 'delivered');
+          updateWebChatMsgStatusUI(data.messageId, 'sent');
           if (data.projectId) {
             const p = state.projects.find(x => x.id === data.projectId || String(x.id) === String(data.projectId));
             if (p && Array.isArray(p.chats)) {
               const msg = p.chats.find(c => c && c.id === data.messageId);
-              if (msg) {
-                msg.status = 'delivered';
+              if (msg && msg.status !== 'read' && msg.status !== 'seen') {
+                msg.status = 'sent';
                 saveState();
               }
             }
+          }
+        } else if (data.type === 'CHATS_READ' && data.projectId) {
+          const p = state.projects.find(x => x.id === data.projectId || String(x.id) === String(data.projectId));
+          if (p && Array.isArray(p.chats)) {
+            let changed = false;
+            p.chats.forEach(c => {
+              if (c) {
+                if (!Array.isArray(c.readBy)) c.readBy = [];
+                if (data.readByUid && !c.readBy.includes(data.readByUid)) {
+                  c.readBy.push(data.readByUid);
+                  changed = true;
+                }
+                // If this is user's own sent message and all other members have seen it, update status UI
+                const currentUid = (state.currentUser && (state.currentUser.id || state.currentUser.uid)) || '';
+                const currentEmail = (state.currentUser && state.currentUser.email ? state.currentUser.email.toLowerCase() : '');
+                const isMyMsg = (c.isOwn || (c.senderId && currentUid && String(c.senderId) === String(currentUid)) ||
+                  (c.senderEmail && currentEmail && String(c.senderEmail).toLowerCase() === currentEmail));
+                if (isMyMsg && c.id) {
+                  if (typeof isChatSeenByAllMembers === 'function' && isChatSeenByAllMembers(c, p)) {
+                    c.status = 'seen';
+                    updateWebChatMsgStatusUI(c.id, 'seen');
+                  }
+                }
+              }
+            });
+            if (changed) saveState();
           }
         } else if (data.type === 'PROJECT_UPDATED' && data.projectId && data.project) {
           const incoming = data.project;
@@ -1116,6 +1155,54 @@
 
           // Live update task detail modal if open
           refreshOpenTaskDetailModal();
+        } else if (data.type === 'PROJECT_DELETED' && data.projectId) {
+          const myUid = state.currentUser ? String(state.currentUser.id || state.currentUser.uid || '').trim() : '';
+          const myEmail = state.currentUser ? getCurrentUserEmail(state.currentUser).toLowerCase().trim() : '';
+          const isTarget = (Array.isArray(data.memberUids) && myUid && data.memberUids.includes(myUid)) ||
+                           (Array.isArray(data.memberEmails) && myEmail && data.memberEmails.includes(myEmail)) ||
+                           state.projects.some(p => p.id === data.projectId || String(p.id) === String(data.projectId));
+          const isDeleter = (data.deletedByUid && myUid && String(data.deletedByUid) === myUid);
+          if (isTarget && !isDeleter) {
+            notifyUserProjectDeleted(data.projectName || 'Workspace', data.deletedBy || 'the project owner', data.projectId, `deleted_${data.projectId}`);
+          }
+          state.projects = state.projects.filter(p => p.id !== data.projectId && String(p.id) !== String(data.projectId));
+          saveState();
+          renderHome();
+        } else if (data.type === 'MEMBER_REMOVED' && data.projectId) {
+          const myUid = state.currentUser ? String(state.currentUser.id || state.currentUser.uid || '').trim() : '';
+          const myEmail = state.currentUser ? getCurrentUserEmail(state.currentUser).toLowerCase().trim() : '';
+          const isTarget = (data.removedMemberId && myUid && String(data.removedMemberId) === myUid) ||
+                           (data.removedMemberEmail && myEmail && data.removedMemberEmail.toLowerCase().trim() === myEmail);
+          if (isTarget) {
+            notifyUserMemberRemoved(data.projectName || 'Workspace', data.removedByName || 'an admin', data.projectId, `removed_${data.projectId}_${Date.now()}`);
+            state.projects = state.projects.filter(p => p.id !== data.projectId && String(p.id) !== String(data.projectId));
+            saveState();
+            renderHome();
+          } else if (data.project) {
+            // Another member was removed, update local project state
+            const pIdx = state.projects.findIndex(p => p.id === data.projectId || String(p.id) === String(data.projectId));
+            if (pIdx !== -1) {
+              state.projects[pIdx] = data.project;
+              saveState();
+              if (state.activeProjectId === data.projectId) {
+                renderProjectDetail(data.project);
+              }
+            }
+          }
+        } else if (data.type === 'TASK_DELETED' && data.task && data.projectId) {
+          const sig = `task_del_${data.projectId}_${data.task.id}`;
+          notifyUserTaskDeleted(data.projectName || 'Project', data.task, data.deletedBy || 'an admin', data.projectId, data.task.id, sig);
+          const pIdx = state.projects.findIndex(p => p.id === data.projectId || String(p.id) === String(data.projectId));
+          if (pIdx !== -1) {
+            state.projects[pIdx].tasks = (state.projects[pIdx].tasks || []).filter(t => t.id !== data.task.id && String(t.id) !== String(data.task.id));
+            if (!Array.isArray(state.projects[pIdx].deletedTasks)) state.projects[pIdx].deletedTasks = [];
+            state.projects[pIdx].deletedTasks.unshift(data.task);
+            saveState();
+            if (state.activeProjectId === data.projectId) {
+              renderProjectDetail(state.projects[pIdx]);
+            }
+            renderHome();
+          }
         }
       } catch (err) {
         console.warn('[PulsePM Web] BroadcastChannel message note:', err);
@@ -1141,8 +1228,26 @@
         const prevChats = currentProj ? (currentProj.chats || []) : [];
         const incomingChats = Array.isArray(cloudData.chats) ? cloudData.chats : [];
 
-        // Retain any locally sending messages
-        const pending = prevChats.filter(c => c && c.status === 'sending');
+        // Any message stored in Firestore is already delivered to the cloud!
+        incomingChats.forEach(ic => {
+          if (ic && (!ic.status || ic.status === 'sending')) {
+            ic.status = 'sent';
+            ic.isLocalInFlight = false;
+          }
+        });
+
+        // Preserve locally-advanced status (sent/seen) when cloud snapshot has an older status
+        const statusRank = { sending: 0, sent: 1, delivered: 1, read: 2, seen: 2 };
+        incomingChats.forEach(ic => {
+          if (!ic || !ic.id) return;
+          const localVersion = prevChats.find(c => c && c.id === ic.id);
+          if (localVersion && (statusRank[localVersion.status] || 0) > (statusRank[ic.status] || 0)) {
+            ic.status = localVersion.status;
+          }
+        });
+
+        // Retain any genuinely locally sending in-flight messages (under 2.5s)
+        const pending = prevChats.filter(c => c && c.status === 'sending' && c.isLocalInFlight && (Date.now() - (c.localSentAt || 0) < 2500));
         pending.forEach(pm => {
           if (!incomingChats.some(c => c && c.id === pm.id)) {
             incomingChats.push(pm);
@@ -1282,6 +1387,16 @@
       });
     }
 
+    if (Array.isArray(clean.chats)) {
+      clean.chats.forEach(c => {
+        if (!c) return;
+        if (!c.status || c.status === 'sending') {
+          c.status = 'sent';
+          c.isLocalInFlight = false;
+        }
+      });
+    }
+
     return clean;
   }
 
@@ -1364,6 +1479,7 @@
       if (!query || typeof query.onSnapshot !== 'function') return;
 
       let isInitialSnapshot = true;
+      checkDeletedProjectsForUser(user);
       firestoreProjectsUnsubscribe = query.onSnapshot(snapshot => {
         let hasChanges = false;
         snapshot.docChanges().forEach(change => {
@@ -1392,7 +1508,27 @@
             (Array.isArray(docData.memberUids) && userId && docData.memberUids.map(u => String(u).trim()).includes(userId));
 
           if (!isMember) {
-            // If user was removed from project
+            // Check if user was previously a member and was removed
+            const existingProj = state.projects.find(p => p.id === docData.id || String(p.id) === String(docData.id));
+            if (existingProj) {
+              const myUid = state.currentUser ? String(state.currentUser.id || state.currentUser.uid || '').trim() : userId;
+              const myEmail = state.currentUser ? getCurrentUserEmail(state.currentUser).toLowerCase().trim() : userEmail;
+
+              let remover = 'an admin';
+              let removalAt = 'latest';
+              if (Array.isArray(docData.removedMembers)) {
+                const rInfo = docData.removedMembers.find(rm => 
+                  (rm.uid && myUid && String(rm.uid) === myUid) ||
+                  (rm.email && myEmail && rm.email.toLowerCase().trim() === myEmail)
+                );
+                if (rInfo) {
+                  remover = rInfo.removedBy || remover;
+                  removalAt = rInfo.removedAt || removalAt;
+                }
+              }
+              const removalSig = `removed_${docData.id}_${removalAt}`;
+              notifyUserMemberRemoved(docData.name || existingProj.name, remover, docData.id, removalSig);
+            }
             const beforeLen = state.projects.length;
             state.projects = state.projects.filter(p => p.id !== docData.id && String(p.id) !== String(docData.id));
             if (state.projects.length !== beforeLen) hasChanges = true;
@@ -1532,6 +1668,16 @@
                 }
               }
             });
+
+            // Check for deleted tasks in docData.deletedTasks
+            if (Array.isArray(docData.deletedTasks)) {
+              docData.deletedTasks.forEach(delTask => {
+                if (delTask && delTask.id) {
+                  const sig = `task_del_${docData.id}_${delTask.id}`;
+                  notifyUserTaskDeleted(docData.name || 'Project', delTask, delTask.deletedBy || 'an admin', docData.id, delTask.id, sig);
+                }
+              });
+            }
           }
 
           if (change.type === 'added' || change.type === 'modified') {
@@ -1540,7 +1686,21 @@
               // Merge carefully so pending local chat messages aren't wiped
               const existingChats = state.projects[existingIdx].chats || [];
               const incomingChats = Array.isArray(docData.chats) ? docData.chats : [];
-              const pendingLocal = existingChats.filter(c => c && c.status === 'sending');
+              incomingChats.forEach(ic => {
+                if (ic && (!ic.status || ic.status === 'sending')) {
+                  ic.status = 'sent';
+                  ic.isLocalInFlight = false;
+                }
+              });
+              const statusRank = { sending: 0, sent: 1, delivered: 1, read: 2, seen: 2 };
+              incomingChats.forEach(ic => {
+                if (!ic || !ic.id) return;
+                const localVersion = existingChats.find(c => c && c.id === ic.id);
+                if (localVersion && (statusRank[localVersion.status] || 0) > (statusRank[ic.status] || 0)) {
+                  ic.status = localVersion.status;
+                }
+              });
+              const pendingLocal = existingChats.filter(c => c && c.status === 'sending' && c.isLocalInFlight && (Date.now() - (c.localSentAt || 0) < 2500));
               if (pendingLocal.length > 0) {
                 pendingLocal.forEach(pm => {
                   if (!incomingChats.some(c => c && c.id === pm.id)) {
@@ -1555,6 +1715,15 @@
               hasChanges = true;
             }
           } else if (change.type === 'removed') {
+            const removedProject = state.projects.find(p => p.id === docData.id || String(p.id) === String(docData.id));
+            if (removedProject) {
+              const myUid = state.currentUser ? String(state.currentUser.id || state.currentUser.uid || '').trim() : userId;
+              const isDeleter = (removedProject.creatorId && String(removedProject.creatorId) === myUid);
+              if (!isDeleter) {
+                const deletionSig = `deleted_${docData.id}`;
+                notifyUserProjectDeleted(removedProject.name || docData.name, 'the project owner', docData.id, deletionSig);
+              }
+            }
             const beforeLen = state.projects.length;
             state.projects = state.projects.filter(p => p.id !== docData.id && String(p.id) !== String(docData.id));
             if (state.projects.length !== beforeLen) {
@@ -2773,12 +2942,20 @@
     }
 
     if (tabName === 'chats') {
+      const badge = document.getElementById('tab-chats-count');
+      if (badge) {
+        badge.innerText = '0';
+        badge.style.display = 'none';
+        badge.classList.remove('has-unseen');
+        badge.removeAttribute('title');
+      }
       scrollChatToBottom();
       markProjectChatsAsSeen(state.activeProjectId);
       clearChatNotificationsForProject(state.activeProjectId);
       if (project) {
         updateChatHeaderPresence(project);
       }
+      updateChatTabBadge(project);
     } else {
       updateChatTabBadge();
     }
@@ -2825,6 +3002,18 @@
   // =========================================================
   // 6.5 USER MEMBERSHIP & ACCESS CONTROLS
   // =========================================================
+  const ROLE_NAMES = new Set([
+    'admin', 'owner', 'project lead', 'lead', 'member', 'viewer', 'contributor',
+    'developer', 'senior engineer', 'engineer', 'backend lead', 'product design',
+    'qa lead', 'qa engineer', 'designer', 'user'
+  ]);
+
+  function isRoleName(name) {
+    if (!name || typeof name !== 'string') return true;
+    const clean = name.trim().toLowerCase().replace(/\s*\(you\)\s*/i, '');
+    return ROLE_NAMES.has(clean);
+  }
+
   function isUserMemberOfProject(project, user) {
     if (!project || !user) return false;
     const userId = (user.id || user.uid || '').toString().trim();
@@ -3049,6 +3238,25 @@
     return false;
   }
 
+  function isTaskAssigner(task, user) {
+    if (!task || !user) return false;
+    const userId = user.id || user.uid;
+    const userEmail = getCurrentUserEmail(user).toLowerCase().trim();
+    const userName = (user.name || '').trim().toLowerCase();
+
+    if (task.assignedBy && userId && String(task.assignedBy).trim() === String(userId).trim()) return true;
+    if (task.assignedByEmail && userEmail && task.assignedByEmail.trim().toLowerCase() === userEmail) return true;
+    if (task.assignedByName && userName && (task.assignedByName.trim().toLowerCase() === userName || isNameMatch(task.assignedByName, user.name))) return true;
+
+    // The task creator is also the initial assigner
+    if (task.creatorId && userId && String(task.creatorId).trim() === String(userId).trim()) return true;
+    if (task.createdBy && userId && String(task.createdBy).trim() === String(userId).trim()) return true;
+    if (task.creatorEmail && userEmail && task.creatorEmail.trim().toLowerCase() === userEmail) return true;
+    if (task.creatorName && userName && (task.creatorName.trim().toLowerCase() === userName || isNameMatch(task.creatorName, user.name))) return true;
+
+    return false;
+  }
+
   function canUserAssignSelf(project, user) {
     if (!project || !user) return false;
     // Project Admin, Owner, or Creator can always assign deliverables
@@ -3173,14 +3381,54 @@
   function canUserChangeTaskStatus(project, task, user) {
     if (!project || !task || !user) return false;
 
-    // 1. Task Assignee: "from whom task is assign"
+    // 1. The Assigned Member (Assignee):
+    // The user to whom the task is currently assigned can always update its status
     if (isTaskAssignedToUser(task, user)) {
       return true;
     }
 
-    // 2. Who can assign / reassign tasks:
-    if (canUserReassignTask(project, task, user)) {
+    // 2. The Project Creator & Owner / Admin:
+    // The user who created or owns the project has full administrative rights
+    if (isProjectAdmin(project, user) || isProjectOwner(project, user) || isProjectCreator(project, user)) {
       return true;
+    }
+
+    const policy = project.taskAssignmentPolicy || 'anyone';
+
+    // If set to "Admin Only" (admin_only), only the project creator/admin and the assigned member can change it
+    if (policy === 'admin_only') {
+      return false;
+    }
+
+    // 3. The Task Creator:
+    // The person who originally created that specific task can update its status
+    if (isTaskCreator(task, user)) {
+      return true;
+    }
+
+    // 4. Team Members (Based on Project Assignment Policy):
+    // Must be a member of the project
+    if (!isUserMemberOfProject(project, user)) {
+      return false;
+    }
+
+    // If set to "Everyone" (anyone - the default setting), any project member can update the status
+    if (policy === 'anyone') {
+      return true;
+    }
+
+    // If set to "Selected Members" (specific_members), designated assigners can update it
+    if (policy === 'specific_members') {
+      const currentUid = user.id || user.uid;
+      const memberObj = getProjectMemberForUser(project, user);
+      const memberId = memberObj ? memberObj.id : currentUid;
+      const userEmail = getCurrentUserEmail(user).toLowerCase().trim();
+
+      return Boolean(
+        (project.specialAssigners && memberId && project.specialAssigners.includes(memberId)) ||
+        (project.specialAssigners && currentUid && project.specialAssigners.includes(currentUid)) ||
+        (project.specialAssigners && userEmail && project.specialAssigners.some(x => String(x).toLowerCase().trim() === userEmail))
+      );
     }
 
     return false;
@@ -6334,6 +6582,45 @@
     }
 
     const taskTitle = task.title || 'Untitled';
+
+    // Build tombstone audit record for deletion notifications
+    const activeUser = state.currentUser;
+    const taskRecord = {
+      id: task.id,
+      title: taskTitle,
+      assignee: task.assignee || null,
+      assigneeId: task.assigneeId || null,
+      assigneeEmail: task.assigneeEmail || null,
+      assigneeName: task.assigneeName || task.assignee || null,
+      creatorId: task.creatorId || task.createdBy || null,
+      createdBy: task.createdBy || task.creatorId || null,
+      creatorEmail: task.creatorEmail || null,
+      creatorName: task.creatorName || null,
+      assignedBy: task.assignedBy || null,
+      assignedByName: task.assignedByName || null,
+      deletedBy: activeUser ? activeUser.name : 'Admin',
+      deletedByUid: activeUser ? String(activeUser.id || activeUser.uid || '') : '',
+      deletedAt: new Date().toISOString()
+    };
+
+    if (!Array.isArray(project.deletedTasks)) project.deletedTasks = [];
+    project.deletedTasks.unshift(taskRecord);
+    if (project.deletedTasks.length > 50) project.deletedTasks = project.deletedTasks.slice(0, 50);
+
+    if (pulseLiveSyncChannel) {
+      try {
+        pulseLiveSyncChannel.postMessage({
+          type: 'TASK_DELETED',
+          projectId: project.id,
+          projectName: project.name,
+          task: taskRecord,
+          deletedBy: taskRecord.deletedBy,
+          deletedByUid: taskRecord.deletedByUid,
+          timestamp: Date.now()
+        });
+      } catch (e) {}
+    }
+
     project.tasks.splice(taskIndex, 1);
 
     // Audit log in activity feed
@@ -6361,10 +6648,10 @@
 
   function canUserManageTaskSubtasks(project, task, user) {
     if (!project || !task || !user) return false;
-    // 1. Admin / Owner / Creator
+    // 1. Admin / Owner / Creator of the project
     if (isProjectAdmin(project, user) || isProjectOwner(project, user) || isProjectCreator(project, user)) return true;
-    // 2. Task Creator
-    if (isTaskCreator(task, user)) return true;
+    // 2. Task Creator or Task Assigner
+    if (isTaskCreator(task, user) || isTaskAssigner(task, user)) return true;
     // 3. Assigned Member
     if (isTaskAssignee(task, user) || isTaskAssignedToUser(task, user)) return true;
     return false;
@@ -6372,10 +6659,10 @@
 
   function canUserCommentOnTask(project, task, user) {
     if (!project || !task || !user) return false;
-    // 1. Admin / Owner / Creator
+    // 1. Admin / Owner / Creator of the project
     if (isProjectAdmin(project, user) || isProjectOwner(project, user) || isProjectCreator(project, user)) return true;
-    // 2. Task Creator
-    if (isTaskCreator(task, user)) return true;
+    // 2. Task Creator or Task Assigner
+    if (isTaskCreator(task, user) || isTaskAssigner(task, user)) return true;
     // 3. Assigned Member
     if (isTaskAssignee(task, user) || isTaskAssignedToUser(task, user)) return true;
     return false;
@@ -6760,21 +7047,26 @@
 
         let statusHtml = '';
         if (isSelf) {
-          const hasBeenRead = Array.isArray(msg.readBy) && msg.readBy.some(r =>
-            r && String(r) !== String(currentUid) && String(r).toLowerCase().trim() !== currentEmail
-          );
+          const isSeenByAll = typeof isChatSeenByAllMembers === 'function'
+            ? isChatSeenByAllMembers(msg, project)
+            : false;
 
-          if (hasBeenRead) {
-            statusHtml = `<div class="chat-msg-status status-read" id="web-chat-msg-status-${msg.id}"><span class="chat-status-indicator">✓✓</span> Read</div>`;
-          } else if (msg.status === 'sending') {
+          // A message can only genuinely be in 'sending' state if it was created locally in this session
+          // and hasn't yet completed Firestore write (< 2000ms old).
+          const isStillSending = (msg.status === 'sending' || msg.isLocalInFlight) &&
+                                 msg.localSentAt && (Date.now() - msg.localSentAt < 2000);
+
+          if (isSeenByAll) {
+            statusHtml = `<div class="chat-msg-status status-seen" id="web-chat-msg-status-${msg.id}"><span class="chat-status-indicator">✓✓</span> Seen</div>`;
+          } else if (isStillSending) {
             statusHtml = `<div class="chat-msg-status status-sending" id="web-chat-msg-status-${msg.id}"><span class="chat-status-indicator">🕒</span> Sending...</div>`;
-          } else if (msg.status === 'sent') {
-            statusHtml = `<div class="chat-msg-status status-sent" id="web-chat-msg-status-${msg.id}"><span class="chat-status-indicator">✓</span> Sent</div>`;
+          } else if (msg.status === 'error') {
+            statusHtml = `<div class="chat-msg-status status-error" id="web-chat-msg-status-${msg.id}"><span class="chat-status-indicator">⚠️</span> Failed to send</div>`;
           } else {
-            statusHtml = `<div class="chat-msg-status status-delivered" id="web-chat-msg-status-${msg.id}"><span class="chat-status-indicator">✓✓</span> Delivered</div>`;
+            statusHtml = `<div class="chat-msg-status status-sent" id="web-chat-msg-status-${msg.id}"><span class="chat-status-indicator">✓</span> Sent</div>`;
           }
         } else {
-          statusHtml = `<div class="chat-msg-status status-received"><span class="chat-status-indicator">✓</span> Delivered</div>`;
+          statusHtml = '';
         }
 
         html += `
@@ -7119,6 +7411,8 @@
       text: text,
       timestamp: new Date().toISOString(),
       status: 'sending',
+      isLocalInFlight: true,
+      localSentAt: Date.now(),
       isOwn: true,
       readBy: currentUid ? [currentUid] : []
     };
@@ -7176,6 +7470,83 @@
     });
   }
 
+  function isChatSeenByAllMembers(msg, project) {
+    if (!msg || !project) return false;
+    const readBy = Array.isArray(msg.readBy) ? msg.readBy : [];
+
+    const senderId = String(msg.senderId || msg.authorId || '').trim().toLowerCase();
+    const senderEmail = String(msg.senderEmail || msg.authorEmail || '').trim().toLowerCase();
+    const senderName = String(msg.senderName || msg.authorName || '').trim().toLowerCase();
+
+    // Normalized set of readers
+    const normReadBy = new Set(readBy.map(r => r ? String(r).trim().toLowerCase() : '').filter(Boolean));
+
+    // Anyone who posted a message in this channel AFTER this message has seen it
+    const chats = Array.isArray(project.chats) ? project.chats : [];
+    const msgTime = new Date(msg.timestamp || 0).getTime();
+    chats.forEach(c => {
+      if (!c) return;
+      const cTime = new Date(c.timestamp || 0).getTime();
+      if (cTime >= msgTime && c.id !== msg.id) {
+        const sId = String(c.senderId || c.authorId || '').trim().toLowerCase();
+        const sEmail = String(c.authorEmail || c.senderEmail || '').trim().toLowerCase();
+        const sName = String(c.authorName || c.senderName || '').trim().toLowerCase();
+        if (sId) normReadBy.add(sId);
+        if (sEmail) normReadBy.add(sEmail);
+        if (sName) normReadBy.add(sName);
+      }
+    });
+
+    // Collect other members belonging to this project (from project.members ONLY)
+    const otherMembers = [];
+    const seenKeys = new Set();
+
+    function addOtherMember(id, email, name) {
+      const normId = id ? String(id).trim().toLowerCase() : '';
+      const normEmail = email ? String(email).trim().toLowerCase() : '';
+      const normName = name ? String(name).trim().toLowerCase() : '';
+      if (!normId && !normEmail && !normName) return;
+
+      const isSender = (normId && senderId && normId === senderId) ||
+                       (normEmail && senderEmail && normEmail === senderEmail) ||
+                       (normName && senderName && normName === senderName);
+      if (isSender) return;
+
+      const key = normId || normEmail || normName;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        otherMembers.push({ id: normId, email: normEmail, name: normName });
+      }
+    }
+
+    if (Array.isArray(project.members) && project.members.length > 0) {
+      project.members.forEach(m => {
+        if (!m) return;
+        if (typeof m === 'object') {
+          addOtherMember(m.id || m.uid, m.email, m.name);
+        } else if (typeof m === 'string') {
+          if (m.includes('@')) addOtherMember('', m, '');
+          else addOtherMember(m, '', '');
+        }
+      });
+    }
+
+    function didMemberRead(m) {
+      if (m.id && normReadBy.has(m.id)) return true;
+      if (m.email && normReadBy.has(m.email)) return true;
+      if (m.name && normReadBy.has(m.name)) return true;
+      return Array.from(normReadBy).some(r => {
+        return (m.id && r === m.id) || (m.email && r === m.email) || (m.name && r === m.name);
+      });
+    }
+
+    if (otherMembers.length > 0) {
+      return otherMembers.every(m => didMemberRead(m));
+    }
+
+    return Array.from(normReadBy).some(r => (!senderId || r !== senderId) && (!senderEmail || r !== senderEmail));
+  }
+
   function updateWebChatMsgStatusUI(msgId, status) {
     if (!msgId) return;
     const el = document.getElementById('web-chat-msg-status-' + msgId) ||
@@ -7184,33 +7555,48 @@
     if (status === 'sending') {
       el.className = 'chat-msg-status status-sending';
       el.innerHTML = '<span class="chat-status-indicator">🕒</span> Sending...';
-    } else if (status === 'sent') {
+    } else if (status === 'sent' || status === 'delivered') {
       el.className = 'chat-msg-status status-sent';
       el.innerHTML = '<span class="chat-status-indicator">✓</span> Sent';
-    } else if (status === 'delivered') {
-      el.className = 'chat-msg-status status-delivered';
-      el.innerHTML = '<span class="chat-status-indicator">✓✓</span> Delivered';
-    } else if (status === 'read') {
-      el.className = 'chat-msg-status status-read';
-      el.innerHTML = '<span class="chat-status-indicator">✓✓</span> Read';
+    } else if (status === 'seen' || status === 'read') {
+      el.className = 'chat-msg-status status-seen';
+      el.innerHTML = '<span class="chat-status-indicator">✓✓</span> Seen';
+    } else if (status === 'error') {
+      el.className = 'chat-msg-status status-error';
+      el.innerHTML = '<span class="chat-status-indicator">⚠️</span> Failed to send';
     }
   }
 
   function syncProjectChatFastWeb(project, newMsg) {
     if (!newMsg) return;
 
-    function markMessageDelivered() {
-      newMsg.status = 'delivered';
+    function markMessageSent() {
+      newMsg.status = 'sent';
+      newMsg.isLocalInFlight = false;
       if (project && Array.isArray(project.chats)) {
         const found = project.chats.find(c => c && c.id === newMsg.id);
-        if (found) found.status = 'delivered';
+        if (found) {
+          found.isLocalInFlight = false;
+          if (found.status !== 'read' && found.status !== 'seen') {
+            found.status = 'sent';
+          }
+        }
       }
       const stProj = state.projects.find(p => p.id === project.id);
       if (stProj && Array.isArray(stProj.chats)) {
         const found = stProj.chats.find(c => c && c.id === newMsg.id);
-        if (found) found.status = 'delivered';
+        if (found) {
+          found.isLocalInFlight = false;
+          if (found.status !== 'read' && found.status !== 'seen') {
+            found.status = 'sent';
+          }
+        }
       }
-      updateWebChatMsgStatusUI(newMsg.id, 'delivered');
+      if (isChatSeenByAllMembers(newMsg, project)) {
+        updateWebChatMsgStatusUI(newMsg.id, 'seen');
+      } else {
+        updateWebChatMsgStatusUI(newMsg.id, 'sent');
+      }
       saveState();
     }
 
@@ -7220,28 +7606,30 @@
         pulseLiveSyncChannel.postMessage({
           type: 'NEW_CHAT_MESSAGE',
           projectId: project.id,
-          message: newMsg,
+          message: { ...newMsg, status: 'sent', isLocalInFlight: false },
           timestamp: Date.now()
         });
       } catch (e) {}
     }
 
-    // Safety fallback: ensure UI transitions to delivered within 800ms
-    const safetyTimer = setTimeout(() => {
-      markMessageDelivered();
-    }, 800);
+    // Delivery transition: transition to sent after brief 300ms display of sending state
+    const deliveryTimer = setTimeout(() => {
+      markMessageSent();
+    }, 300);
 
     if (!isFirebaseLive || !firebaseDb || !project || !project.id) {
-      clearTimeout(safetyTimer);
-      markMessageDelivered();
       return;
     }
 
+    // Prepare clean chats array — ensure NO chat is ever written with 'sending' to Firestore
     const cleanChats = JSON.parse(JSON.stringify(project.chats || [])).map(c => {
-      if (c && c.id === newMsg.id) {
-        return { ...c, status: 'delivered' };
-      }
-      return c;
+      if (!c) return c;
+      const isRead = c.status === 'seen' || c.status === 'read';
+      return {
+        ...c,
+        status: isRead ? 'seen' : 'sent',
+        isLocalInFlight: false
+      };
     });
 
     firebaseDb.collection('projects').doc(project.id).set({
@@ -7249,13 +7637,14 @@
       updatedAt: new Date().toISOString()
     }, { merge: true })
     .then(() => {
-      clearTimeout(safetyTimer);
-      markMessageDelivered();
+      clearTimeout(deliveryTimer);
+      markMessageSent();
     })
     .catch(err => {
       console.warn('[Web App] Fast chat write note, fallback:', err);
       syncProjectToFirestore(project);
-      markMessageDelivered();
+      clearTimeout(deliveryTimer);
+      markMessageSent();
     });
   }
 
@@ -7868,6 +8257,25 @@
     // Remove member
     project.members.splice(memberIndex, 1);
 
+    // Track removal metadata so removed member receives immediate notification
+    if (!Array.isArray(project.removedMembers)) project.removedMembers = [];
+    project.removedMembers.push({
+      id: member.id,
+      uid: member.id,
+      email: (member.email || '').toLowerCase().trim(),
+      name: member.name,
+      removedBy: state.currentUser ? state.currentUser.name : 'Admin',
+      removedByUid: state.currentUser ? (state.currentUser.id || state.currentUser.uid) : '',
+      removedAt: new Date().toISOString()
+    });
+
+    if (Array.isArray(project.memberUids)) {
+      project.memberUids = project.memberUids.filter(u => String(u) !== String(member.id));
+    }
+    if (Array.isArray(project.memberEmails) && member.email) {
+      project.memberEmails = project.memberEmails.filter(e => String(e).toLowerCase().trim() !== String(member.email).toLowerCase().trim());
+    }
+
     // Remove from special assigners
     if (project.specialAssigners) {
       project.specialAssigners = project.specialAssigners.filter(id => id !== memberId);
@@ -7893,6 +8301,22 @@
 
     saveState();
     syncProjectToFirestore(project);
+
+    // Broadcast immediately to BroadcastChannel
+    if (pulseLiveSyncChannel) {
+      try {
+        pulseLiveSyncChannel.postMessage({
+          type: 'MEMBER_REMOVED',
+          projectId: project.id,
+          projectName: project.name,
+          removedMemberId: member.id,
+          removedMemberEmail: member.email,
+          removedByName: state.currentUser ? state.currentUser.name : 'Admin',
+          project: project
+        });
+      } catch (e) {}
+    }
+
     renderProjectDetail(project);
 
     // Maintain current search filter if user was searching
@@ -8166,6 +8590,39 @@
     const currentUserEmail = getCurrentUserEmail();
     const projectName = project.name;
 
+    const memberUids = (project.members || []).map(m => m.id || m.uid).filter(Boolean);
+    const memberEmails = (project.members || []).map(m => m.email).filter(Boolean);
+    if (project.creatorId) memberUids.push(project.creatorId);
+    if (project.creatorEmail) memberEmails.push(project.creatorEmail);
+
+    // Record tombstone in deleted_projects collection so all members who log in later receive notification
+    if (isFirebaseLive && firebaseDb) {
+      firebaseDb.collection('deleted_projects').doc(projectId).set({
+        id: projectId,
+        name: projectName,
+        deletedBy: state.currentUser ? state.currentUser.name : 'Project Owner',
+        deletedByUid: currentUserId,
+        deletedAt: new Date().toISOString(),
+        memberUids: [...new Set(memberUids.map(String))],
+        memberEmails: [...new Set(memberEmails.map(e => String(e).toLowerCase()))]
+      }).catch(err => console.warn('Could not record deleted_projects:', err));
+    }
+
+    // Broadcast immediately to BroadcastChannel
+    if (pulseLiveSyncChannel) {
+      try {
+        pulseLiveSyncChannel.postMessage({
+          type: 'PROJECT_DELETED',
+          projectId: projectId,
+          projectName: projectName,
+          deletedBy: state.currentUser ? state.currentUser.name : 'Project Owner',
+          deletedByUid: currentUserId,
+          memberUids: [...new Set(memberUids.map(String))],
+          memberEmails: [...new Set(memberEmails.map(e => String(e).toLowerCase()))]
+        });
+      } catch (e) {}
+    }
+
     // Alert all other members that project was deleted
     (project.members || []).forEach(member => {
       const isSender = (member.id && currentUserId && member.id === currentUserId) ||
@@ -8174,9 +8631,10 @@
         createNotification({
           type: 'project_deleted',
           recipientId: member.id,
+          recipientEmail: member.email,
           projectId: null,
           taskId: null,
-          message: `⚠️ Project "${projectName}" has been permanently retired and deleted by the owner.`
+          message: `⚠️ Project "${projectName}" has been permanently retired and deleted by ${state.currentUser ? state.currentUser.name : 'the owner'}.`
         });
       }
     });
@@ -9027,7 +9485,7 @@
     }
 
     // 4. If current user is actively viewing this project's chat tab right now, consider seen
-    if (state.activeProjectId === projectId && state.activeProjectTab === 'chats' && !document.hidden) {
+    if ((state.activeProjectId === projectId || String(state.activeProjectId) === String(projectId)) && state.activeProjectTab === 'chats') {
       return true;
     }
 
@@ -9042,25 +9500,33 @@
 
   function markProjectChatsAsSeen(projectId, user) {
     if (!projectId) return;
-    const project = (state.projects || []).find(p => p.id === projectId);
+    const project = (state.projects || []).find(p => p.id === projectId || String(p.id) === String(projectId));
     if (!project || !Array.isArray(project.chats)) return;
 
     const u = user || state.currentUser;
-    const uid = (u && (u.id || u.uid)) || '';
-    if (!uid) return;
+    const uid = (u && (u.id || u.uid)) ? String(u.id || u.uid).trim() : '';
+    const email = (u && u.email) ? u.email.trim().toLowerCase() : '';
+    if (!uid && !email) return;
 
     if (!state.userSeenChats) state.userSeenChats = {};
-    const key = getUserSeenChatKey(projectId, uid);
+    const key = getUserSeenChatKey(projectId, uid || email);
     const seenSet = new Set(Array.isArray(state.userSeenChats[key]) ? state.userSeenChats[key] : []);
 
     let modified = false;
+    const readMsgIds = [];
     project.chats.forEach(chat => {
       if (!Array.isArray(chat.readBy)) {
         chat.readBy = [];
       }
-      if (!chat.readBy.includes(uid)) {
+      if (uid && !chat.readBy.includes(uid)) {
         chat.readBy.push(uid);
         modified = true;
+        if (chat.id) readMsgIds.push(chat.id);
+      }
+      if (email && !chat.readBy.includes(email)) {
+        chat.readBy.push(email);
+        modified = true;
+        if (chat.id && !readMsgIds.includes(chat.id)) readMsgIds.push(chat.id);
       }
       if (chat.id && !seenSet.has(chat.id)) {
         seenSet.add(chat.id);
@@ -9071,6 +9537,31 @@
     state.userSeenChats[key] = Array.from(seenSet);
     if (modified) {
       saveState();
+
+      // Sync readBy updates to Firestore so sender gets status 'read' across devices
+      try {
+        if (isFirebaseLive && firebaseDb) {
+          firebaseDb.collection('projects').doc(project.id).set({
+            chats: project.chats,
+            updatedAt: new Date().toISOString()
+          }, { merge: true }).catch(err => {
+            console.warn('[PulsePM Web] Firestore chats read sync error:', err);
+          });
+        }
+      } catch (e) {}
+
+      // Broadcast to other tabs so sender transitions message status immediately
+      if (pulseLiveSyncChannel) {
+        try {
+          pulseLiveSyncChannel.postMessage({
+            type: 'CHATS_READ',
+            projectId: project.id,
+            readByUid: uid,
+            messageIds: readMsgIds,
+            timestamp: Date.now()
+          });
+        } catch (e) {}
+      }
     }
     updateChatTabBadge(project);
   }
@@ -9079,41 +9570,56 @@
     const badge = document.getElementById('tab-chats-count');
     if (!badge) return;
 
-    const p = project || (state.projects || []).find(proj => proj.id === state.activeProjectId);
+    const p = project || (state.projects || []).find(proj => proj.id === state.activeProjectId || String(proj.id) === String(state.activeProjectId));
     if (!p) {
       badge.innerText = '0';
+      badge.style.display = 'none';
       badge.classList.remove('has-unseen');
       badge.removeAttribute('title');
       return;
     }
 
-    // If chat tab is actively open and document is visible, mark existing messages seen
-    if (state.activeProjectId === p.id && state.activeProjectTab === 'chats' && !document.hidden) {
+    const isChatOpen = (state.activeProjectTab === 'chats' &&
+      (state.activeProjectId === p.id || String(state.activeProjectId) === String(p.id)));
+
+    // If chat tab is actively open, mark existing messages seen and remove badge
+    if (isChatOpen) {
       if (!state.userSeenChats) state.userSeenChats = {};
       const u = state.currentUser;
-      const uid = (u && (u.id || u.uid)) || '';
-      if (uid && Array.isArray(p.chats)) {
-        const key = getUserSeenChatKey(p.id, uid);
+      const uid = (u && (u.id || u.uid)) ? String(u.id || u.uid).trim() : '';
+      const email = (u && u.email) ? u.email.trim().toLowerCase() : '';
+      if ((uid || email) && Array.isArray(p.chats)) {
+        const key = getUserSeenChatKey(p.id, uid || email);
         const seenSet = new Set(Array.isArray(state.userSeenChats[key]) ? state.userSeenChats[key] : []);
         let changed = false;
         p.chats.forEach(c => {
           if (!Array.isArray(c.readBy)) c.readBy = [];
-          if (!c.readBy.includes(uid)) { c.readBy.push(uid); changed = true; }
+          if (uid && !c.readBy.includes(uid)) { c.readBy.push(uid); changed = true; }
+          if (email && !c.readBy.includes(email)) { c.readBy.push(email); changed = true; }
           if (c.id && !seenSet.has(c.id)) { seenSet.add(c.id); changed = true; }
         });
         state.userSeenChats[key] = Array.from(seenSet);
         if (changed) saveState();
       }
+
+      // Requirement: Count of unread message should not show once chat is open
+      badge.innerText = '0';
+      badge.style.display = 'none';
+      badge.classList.remove('has-unseen');
+      badge.removeAttribute('title');
+      return;
     }
 
     const unseenCount = getUnseenChatCount(p);
     badge.innerText = String(unseenCount);
 
     if (unseenCount > 0) {
+      badge.style.display = '';
       badge.classList.add('has-unseen');
       badge.title = `${unseenCount} unseen message${unseenCount === 1 ? '' : 's'}`;
       badge.setAttribute('aria-label', `${unseenCount} unseen messages`);
     } else {
+      badge.style.display = 'none';
       badge.classList.remove('has-unseen');
       badge.title = 'No unseen messages';
       badge.setAttribute('aria-label', '0 unseen messages');
@@ -9182,6 +9688,164 @@
     state.notifications.unshift(notif);
     saveState();
     updateNotificationBell();
+  }
+
+  function notifyUserProjectDeleted(projectName, deletedByName, projectId, deletionSig) {
+    const currentUid = state.currentUser ? String(state.currentUser.id || state.currentUser.uid || '').trim() : '';
+    const currentEmail = state.currentUser ? getCurrentUserEmail(state.currentUser).toLowerCase().trim() : '';
+    const seenStorageKey = `pulsepm_seen_deletions_${currentUid || currentEmail || 'default'}`;
+    let seen = [];
+    try { seen = JSON.parse(localStorage.getItem(seenStorageKey) || '[]'); } catch(e) { seen = []; }
+    if (deletionSig && seen.includes(deletionSig)) return;
+
+    if (deletionSig) {
+      seen.push(deletionSig);
+      try { localStorage.setItem(seenStorageKey, JSON.stringify(seen.slice(-100))); } catch(e) {}
+    }
+
+    const deleter = deletedByName || 'the project owner';
+    createNotification({
+      type: 'project_deleted',
+      recipientId: currentUid,
+      recipientEmail: currentEmail,
+      projectId: null,
+      message: `⚠️ Project "${projectName}" has been permanently retired and deleted by ${deleter}.`
+    });
+
+    showToast(`⚠️ Project "${projectName}" was deleted by ${deleter}.`, 'warning');
+    sendDesktopNotification({
+      title: 'Project Deleted',
+      body: `Project "${projectName}" was deleted by ${deleter}.`,
+      bypassFocusCheck: true
+    });
+
+    if (state.activeProjectId === projectId || String(state.activeProjectId) === String(projectId)) {
+      state.activeProjectId = null;
+      closeModal('modal-delete-project');
+      closeModal('modal-task-detail');
+      navigateToHome();
+    }
+  }
+
+  function notifyUserMemberRemoved(projectName, removerName, projectId, removalSig) {
+    const currentUid = state.currentUser ? String(state.currentUser.id || state.currentUser.uid || '').trim() : '';
+    const currentEmail = state.currentUser ? getCurrentUserEmail(state.currentUser).toLowerCase().trim() : '';
+    const seenStorageKey = `pulsepm_seen_removals_${currentUid || currentEmail || 'default'}`;
+    let seen = [];
+    try { seen = JSON.parse(localStorage.getItem(seenStorageKey) || '[]'); } catch(e) { seen = []; }
+    if (removalSig && seen.includes(removalSig)) return;
+
+    if (removalSig) {
+      seen.push(removalSig);
+      try { localStorage.setItem(seenStorageKey, JSON.stringify(seen.slice(-100))); } catch(e) {}
+    }
+
+    const remover = removerName || 'an admin';
+    createNotification({
+      type: 'member_removed',
+      recipientId: currentUid,
+      recipientEmail: currentEmail,
+      projectId: null,
+      message: `🚫 You have been removed from project "${projectName}" by ${remover}.`
+    });
+
+    showToast(`🚫 You were removed from project "${projectName}" by ${remover}.`, 'warning');
+    sendDesktopNotification({
+      title: 'Removed from Project',
+      body: `You were removed from project "${projectName}" by ${remover}.`,
+      bypassFocusCheck: true
+    });
+
+    if (state.activeProjectId === projectId || String(state.activeProjectId) === String(projectId)) {
+      state.activeProjectId = null;
+      closeModal('modal-task-detail');
+      navigateToHome();
+    }
+  }
+
+  function notifyUserTaskDeleted(projectName, taskRecord, deletedByName, projectId, taskId, sig) {
+    if (!taskRecord || !state.currentUser) return;
+    const currentUid = String(state.currentUser.id || state.currentUser.uid || '').trim();
+    const currentEmail = getCurrentUserEmail(state.currentUser).toLowerCase().trim();
+
+    // Do not notify the person who deleted the task
+    if (taskRecord.deletedByUid && currentUid && String(taskRecord.deletedByUid) === currentUid) {
+      return;
+    }
+
+    // Check if current user is Assignee or Creator
+    const isAssignee = isTaskAssignee(taskRecord, state.currentUser) || isTaskAssignedToUser(taskRecord, state.currentUser);
+    const isCreator = isTaskCreator(taskRecord, state.currentUser);
+
+    if (!isAssignee && !isCreator) {
+      return;
+    }
+
+    const seenStorageKey = `pulsepm_seen_deleted_tasks_${currentUid || currentEmail || 'default'}`;
+    let seen = [];
+    try { seen = JSON.parse(localStorage.getItem(seenStorageKey) || '[]'); } catch(e) { seen = []; }
+    if (sig && seen.includes(sig)) return;
+
+    if (sig) {
+      seen.push(sig);
+      try { localStorage.setItem(seenStorageKey, JSON.stringify(seen.slice(-100))); } catch(e) {}
+    }
+
+    const deleter = deletedByName || 'an admin';
+    const taskTitle = taskRecord.title || 'Untitled deliverable';
+    let roleText = 'assigned to you';
+    if (isAssignee && isCreator) {
+      roleText = 'created by and assigned to you';
+    } else if (isCreator) {
+      roleText = 'created by you';
+    }
+
+    const notifMessage = `🗑️ Task "${taskTitle}" ${roleText} in "${projectName}" was deleted by ${deleter}.`;
+
+    createNotification({
+      type: 'task_deleted',
+      recipientId: currentUid,
+      recipientEmail: currentEmail,
+      projectId: projectId || null,
+      taskId: taskId || null,
+      message: notifMessage
+    });
+
+    showToast(`🗑️ Task "${taskTitle}" ${roleText} was deleted by ${deleter}.`, 'warning');
+    sendDesktopNotification({
+      title: 'Task Deleted',
+      body: `Task "${taskTitle}" ${roleText} in "${projectName}" was deleted by ${deleter}.`,
+      bypassFocusCheck: true
+    });
+
+    // Close task detail modal if the deleted task is currently open
+    if (state.activeDetailTaskId === taskId || String(state.activeDetailTaskId) === String(taskId)) {
+      state.activeDetailTaskId = null;
+      state.activeDetailProjectId = null;
+      closeModal('modal-task-detail');
+    }
+  }
+
+  function checkDeletedProjectsForUser(user) {
+    if (!isFirebaseLive || !firebaseDb || !user) return;
+    const uid = String(user.id || user.uid || '').trim();
+    const email = getCurrentUserEmail(user).toLowerCase().trim();
+    if (!uid && !email) return;
+
+    firebaseDb.collection('deleted_projects').limit(50).get().then(snap => {
+      if (!snap || snap.empty) return;
+      snap.forEach(doc => {
+        const d = doc.data();
+        if (!d) return;
+        const isMember = (Array.isArray(d.memberUids) && uid && d.memberUids.includes(uid)) ||
+                         (Array.isArray(d.memberEmails) && email && d.memberEmails.includes(email));
+        const isDeleter = (d.deletedByUid && uid && String(d.deletedByUid) === uid);
+        if (isMember && !isDeleter) {
+          const deletionSig = `deleted_${d.id || doc.id}`;
+          notifyUserProjectDeleted(d.name || 'Workspace', d.deletedBy || 'an admin', d.id || doc.id, deletionSig);
+        }
+      });
+    }).catch(() => {});
   }
 
   function checkDeadlineNotifications() {
@@ -9261,7 +9925,53 @@
     });
   }
 
+  // ---------------------------------------------------------
+  // PERSISTENT NOTIFICATION READ-STATE
+  // The `read` flag on notification objects in state can be
+  // lost when Firestore re-syncs overwrite state.notifications.
+  // We keep a separate localStorage Set of read notification IDs
+  // keyed per user so the read state always survives login/reload.
+  // ---------------------------------------------------------
+  function getReadNotifKey() {
+    if (!state.currentUser) return null;
+    const uid = state.currentUser.id || state.currentUser.uid || '';
+    const email = (getCurrentUserEmail() || '').toLowerCase().trim();
+    return 'pulsepm_read_notifs_' + (uid || email || 'default');
+  }
+
+  function getReadNotifSet() {
+    const key = getReadNotifKey();
+    if (!key) return new Set();
+    try {
+      return new Set(JSON.parse(localStorage.getItem(key) || '[]'));
+    } catch (e) {
+      return new Set();
+    }
+  }
+
+  function persistReadNotifSet(readSet) {
+    const key = getReadNotifKey();
+    if (!key) return;
+    try {
+      localStorage.setItem(key, JSON.stringify(Array.from(readSet).slice(-500)));
+    } catch (e) {}
+  }
+
+  // Apply persisted read state to all notifications in memory.
+  // Call this after any sync that may have added fresh notification objects.
+  function applyReadStateToNotifications() {
+    if (!state.notifications || !state.notifications.length) return;
+    const readSet = getReadNotifSet();
+    if (!readSet.size) return;
+    state.notifications.forEach(n => {
+      if (readSet.has(n.id)) {
+        n.read = true;
+      }
+    });
+  }
+
   function getMyNotifications() {
+
     if (!state.notifications || !state.currentUser) return [];
     const uid = String(state.currentUser.id || state.currentUser.uid || '').trim();
     const email = (getCurrentUserEmail() || '').toLowerCase().trim();
@@ -9280,7 +9990,11 @@
     const bellBtn = document.getElementById('notif-bell-btn');
     if (!badge || !bellBtn) return;
 
+    // Always restore persisted read state before counting
+    applyReadStateToNotifications();
+
     const unread = getMyNotifications().filter(n => !n.read).length;
+
     if (unread > 0) {
       badge.textContent = unread > 99 ? '99+' : unread;
       badge.style.display = 'flex';
@@ -9329,8 +10043,15 @@
     const notif = (state.notifications || []).find(n => n.id === notifId);
     if (!notif) return;
     notif.read = true;
+
+    // Persist to the dedicated read-state store
+    const readSet = getReadNotifSet();
+    readSet.add(notifId);
+    persistReadNotifSet(readSet);
+
     saveState();
     updateNotificationBell();
+
 
     // Navigate to relevant project and chat/tasks tab
     if (notif.projectId) {
@@ -9351,14 +10072,24 @@
   function markAllNotificationsRead() {
     const mine = getMyNotifications();
     mine.forEach(n => { n.read = true; });
+
+    // Persist all IDs to the dedicated read-state store
+    const readSet = getReadNotifSet();
+    mine.forEach(n => readSet.add(n.id));
+    persistReadNotifSet(readSet);
+
     saveState();
     updateNotificationBell();
     renderNotificationDrawer();
   }
 
+
   function renderNotificationDrawer() {
     const list = document.getElementById('notif-list');
     if (!list) return;
+
+    // Restore persisted read state before rendering
+    applyReadStateToNotifications();
 
     let bannerHtml = '';
     if ('Notification' in window) {
@@ -9411,9 +10142,11 @@
                          n.type === 'task_in_progress' ? '⚡' :
                          n.type === 'task_status_updated' ? '🔄' :
                          n.type === 'task_comment' ? '💬' :
+                         n.type === 'task_deleted' ? '🗑️' :
                          n.type === 'deadline_near' ? '⏰' :
                          n.type === 'project_broadcast' ? '📢' :
                          n.type === 'project_deleted' ? '⚠️' :
+                         n.type === 'member_removed' ? '🚫' :
                          n.type === 'member_exited' ? '👋' :
                          n.type === 'member_deleted_account' ? '⚠️' :
                          n.type === 'join_request' ? '🙋' :
@@ -11500,10 +12233,12 @@
     canUserManageTaskSubtasks,
     canUserCommentOnTask,
     isTaskCreator,
+    isTaskAssigner,
     deleteCurrentOpenTask,
     confirmDeleteTask,
     executeDeleteTask,
     deleteTask,
+    notifyUserTaskDeleted,
     showTaskDeletePermissionWarning,
     approveJoinRequest,
     declineJoinRequest,
