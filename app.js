@@ -1457,8 +1457,19 @@
   }
 
   function migrateLocalProjectsToFirestore(user) {
-    if (!isFirebaseLive || !firebaseDb || !Array.isArray(state.projects) || state.projects.length === 0) return;
+    if (!isFirebaseLive || !firebaseDb || !user || !Array.isArray(state.projects) || state.projects.length === 0) return;
+    const uid = String(user.id || user.uid || '').trim();
+    const email = (getCurrentUserEmail(user) || '').toLowerCase().trim();
+
     state.projects.forEach(project => {
+      // Never auto-migrate hardcoded demo projects
+      if (project.id === 'proj-1' || project.id === 'proj-2' || project.id === 'proj-3') return;
+
+      // Only migrate projects explicitly created by this user
+      const isCreator = (project.creatorId && uid && String(project.creatorId) === uid) ||
+                        (project.creatorEmail && email && project.creatorEmail.toLowerCase().trim() === email);
+      if (!isCreator) return;
+
       if (isUserMemberOfProject(project, user)) {
         firebaseDb.collection('projects').doc(project.id).get().then(docSnap => {
           if (!docSnap || !docSnap.exists) {
@@ -11884,37 +11895,61 @@
     // 4. Save updated project states, chats, and remaining member notifications
     saveState();
 
-    // 5. Clean up user credentials from active localStorage
+    // 5. Clean up all user data and caches from localStorage
     try {
-      localStorage.removeItem('pulsepm_custom_name_' + userId);
-      localStorage.removeItem('pulsepm_custom_avatar_' + userId);
-      localStorage.removeItem('pulsepm_custom_phone_' + userId);
-      localStorage.removeItem('pulsepm_custom_phone_demo');
-      localStorage.removeItem('pulsepm_pwd_set_demo');
+      localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem('pulsepm_user_id');
       localStorage.removeItem('pulsepm_user_email');
+      localStorage.removeItem('pulsepm_custom_phone_demo');
+      localStorage.removeItem('pulsepm_pwd_set_demo');
       localStorage.removeItem('pulsepm_chatbot_explicit_config');
-    } catch (e) {}
+      localStorage.removeItem('pulsepm_presence_v1');
 
-    // 5b. Stop presence heartbeat and clean up presence
+      // Remove all user-scoped keys (names, avatars, phones, read notifs, seen statuses, seen tasks)
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k) continue;
+        if (
+          (userId && k.includes(userId)) ||
+          (userEmail && k.toLowerCase().includes(userEmail.toLowerCase())) ||
+          k.startsWith('pulsepm_read_notifs_') ||
+          k.startsWith('pulsepm_seen_task_statuses_') ||
+          k.startsWith('pulsepm_seen_assigned_tasks_') ||
+          k.startsWith('pulsepm_seen_deletions_') ||
+          k.startsWith('pulsepm_theme_') ||
+          k.startsWith('pulsepm_pwd_set_') ||
+          k.startsWith('pulsepm_custom_')
+        ) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach(k => {
+        try { localStorage.removeItem(k); } catch(e){}
+      });
+    } catch (e) {
+      console.warn('LocalStorage cleanup error on delete account:', e);
+    }
+
+    // 5b. Stop presence heartbeat
     stopPresenceHeartbeat();
-    try {
-      const presenceMap = getLocalPresenceMap();
-      if (userId && presenceMap[userId]) delete presenceMap[userId];
-      if (userEmail && presenceMap[userEmail.toLowerCase()]) delete presenceMap[userEmail.toLowerCase()];
-      saveLocalPresenceMap(presenceMap);
-    } catch(e) {}
 
-    // 6. Reset application session
+    // 6. Reset in-memory application session and clear local projects
     state.isLoggedIn = false;
     state.currentUser = null;
     state.activeProjectId = null;
-    saveState();
+    state.projects = [];
+    state.notifications = [];
+    state.collaborators = [];
+    state.userSeenChats = {};
 
     closeAllModals();
     closeProfileMenu();
 
-    // 6. Redirect to Auth screen
+    // Reset theme back to default light
+    applyTheme('light', false);
+
+    // 7. Redirect to Auth screen
     document.getElementById('main-app').style.display = 'none';
     document.getElementById('auth-view').style.display = 'flex';
 
@@ -11923,7 +11958,7 @@
     if (gmailInput) gmailInput.value = '';
     if (pwdInput) pwdInput.value = '';
 
-    showToast(`Account for ${userName} has been deleted. Profile information was securely saved to the deleted accounts dataset.`, 'success');
+    showToast(`Account for ${userName} has been deleted and all local caches cleared.`, 'success');
   }
 
   function toggleTheme() {
