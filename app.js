@@ -2309,7 +2309,11 @@
       state.projects = [];
       state.activeProjectId = null;
       state.notifications = [];
+      // Note: read state is kept in pulsepm_read_notifs_<uid> and will be
+      // re-applied automatically by applyReadStateToNotifications() after
+      // the sync functions re-populate state.notifications below.
     }
+
 
     state.currentUser = unifiedUser;
     state.isLoggedIn = true;
@@ -11008,9 +11012,13 @@
     });
 
     if (changed) {
+      applyReadStateToNotifications();
       saveState();
       updateNotificationBell();
+    } else {
+      applyReadStateToNotifications();
     }
+
   }
 
   function syncAssignedTasksWithNotifications(projectList, user, isLive = false) {
@@ -11103,10 +11111,17 @@
     } catch (e) {}
 
     if (changed) {
+      // Restore persisted read state BEFORE saving/rendering so
+      // re-created notification objects inherit read:true immediately
+      applyReadStateToNotifications();
       saveState();
       updateNotificationBell();
       renderNotificationDrawer();
+    } else {
+      // Even if nothing changed, restore read flags on already-existing items
+      applyReadStateToNotifications();
     }
+
 
     if (newlyAssignedCount > 0 && lastNewTask && lastNewProj) {
       const assigner = lastNewTask.assignedByName || lastNewTask.creatorName || 'A teammate';
@@ -11228,10 +11243,17 @@
     } catch (e) {}
 
     if (changed) {
+      // Restore persisted read state BEFORE saving/rendering so
+      // re-created notification objects inherit read:true immediately
+      applyReadStateToNotifications();
       saveState();
       updateNotificationBell();
       renderNotificationDrawer();
+    } else {
+      // Even if nothing changed, restore read flags on already-existing items
+      applyReadStateToNotifications();
     }
+
 
     if (newStatusEvents.length > 0) {
       newStatusEvents.forEach(ev => {
