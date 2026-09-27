@@ -946,11 +946,21 @@
         firebaseAuth.onAuthStateChanged(user => {
           if (user) {
             try { localStorage.removeItem('pulsepm_custom_phone_demo'); } catch(e){}
+
+            // STRICT GATE: If user registered via password and email is not verified, require verification
+            const isPasswordUser = user.providerData && user.providerData.some(p => p.providerId === 'password');
+            if (isPasswordUser && !user.emailVerified) {
+              firebaseAuth.signOut().catch(() => {});
+              showEmailVerificationNotice(user.email);
+              return;
+            }
+
             if (!state.isLoggedIn) {
               syncFirebaseUser(user, 'Saved Firebase Session');
             } else {
               setupProjectsFirestoreSync(user);
               migrateLocalProjectsToFirestore(user);
+
               // Ensure custom name and avatar from Firestore are synchronized if present
               if (firebaseDb && user.uid) {
                 firebaseDb.collection('users').doc(user.uid).get().then(docSnap => {
@@ -2477,6 +2487,63 @@
 
   let currentAuthMode = 'signin';
 
+  function showEmailVerificationNotice(emailAddress, customMsg) {
+    const noticeBox = document.getElementById('web-auth-verify-notice');
+    const errorBox = document.getElementById('web-auth-error-msg');
+    if (errorBox) errorBox.style.display = 'none';
+    if (!noticeBox) return;
+
+    const safeEmail = escapeHtml(emailAddress || '');
+    noticeBox.innerHTML = `
+      <strong>📩 Verification Email Sent!</strong>
+      <p>${customMsg || `We sent a link to <b>${safeEmail}</b>. Please check your inbox and verify your email before logging in.`}</p>
+      <button type="button" class="auth-resend-btn" onclick="window.App.resendVerificationEmail('${safeEmail}')">
+        <span>🔄 Resend Verification Link</span>
+      </button>
+    `;
+    noticeBox.style.display = 'block';
+  }
+
+  function resendVerificationEmail(emailAddress) {
+    const errorBox = document.getElementById('web-auth-error-msg');
+    const pwdInput = document.getElementById('gmail-password');
+    const password = pwdInput ? pwdInput.value : '';
+
+    if (!firebaseAuth) {
+      showToast('Authentication service is not available.', 'error');
+      return;
+    }
+
+    if (!password) {
+      if (errorBox) {
+        errorBox.innerText = 'Please enter your password above and click Resend.';
+        errorBox.style.display = 'block';
+      } else {
+        showToast('Please enter your password to resend verification.', 'warning');
+      }
+      return;
+    }
+
+    firebaseAuth.signInWithEmailAndPassword(emailAddress, password)
+      .then(cred => {
+        if (cred.user) {
+          return cred.user.sendEmailVerification().then(() => {
+            firebaseAuth.signOut().catch(() => {});
+            showToast('✅ Verification email resent to ' + emailAddress, 'success');
+            showEmailVerificationNotice(emailAddress, `A new verification email has been sent to <b>${escapeHtml(emailAddress)}</b>.`);
+          });
+        }
+      })
+      .catch(err => {
+        if (errorBox) {
+          errorBox.innerText = err.message;
+          errorBox.style.display = 'block';
+        } else {
+          showToast(err.message, 'error');
+        }
+      });
+  }
+
   function switchAuthMode(mode) {
     currentAuthMode = mode;
     const signinTab = document.getElementById('web-auth-tab-signin');
@@ -2484,7 +2551,9 @@
     const nameGroup = document.getElementById('web-auth-name-group');
     const submitBtn = document.getElementById('web-auth-submit-btn');
     const errorBox = document.getElementById('web-auth-error-msg');
+    const noticeBox = document.getElementById('web-auth-verify-notice');
     if (errorBox) errorBox.style.display = 'none';
+    if (noticeBox) noticeBox.style.display = 'none';
 
     if (mode === 'signup') {
       if (signinTab) {
@@ -2496,7 +2565,7 @@
         signupTab.setAttribute('aria-selected', 'true');
       }
       if (nameGroup) nameGroup.style.display = 'block';
-      if (submitBtn) submitBtn.innerText = 'Create Account & Sign In';
+      if (submitBtn) submitBtn.innerText = 'Create Account & Verify';
     } else {
       if (signupTab) {
         signupTab.classList.remove('active');
@@ -2516,11 +2585,13 @@
     const passwordInput = document.getElementById('gmail-password');
     const nameInput = document.getElementById('web-auth-name-input');
     const errorBox = document.getElementById('web-auth-error-msg');
+    const noticeBox = document.getElementById('web-auth-verify-notice');
     const email = emailInput ? emailInput.value.trim() : '';
     const password = passwordInput ? passwordInput.value : '';
     const name = nameInput ? nameInput.value.trim() : '';
 
     if (errorBox) errorBox.style.display = 'none';
+    if (noticeBox) noticeBox.style.display = 'none';
 
     if (!email || !password) {
       if (errorBox) {
@@ -2538,7 +2609,21 @@
           if (name && cred.user) {
             cred.user.updateProfile({ displayName: name }).catch(() => {});
           }
-          syncFirebaseUser(cred.user, 'Email Registration');
+          // Send verification email via custom domain immediately
+          cred.user.sendEmailVerification()
+            .then(() => {
+              // Sign out immediately (Strict Gate)
+              firebaseAuth.signOut().catch(() => {});
+              showEmailVerificationNotice(email);
+              switchAuthMode('signin');
+              showToast('📩 Verification link sent to your email!', 'success');
+            })
+            .catch(verErr => {
+              console.warn('sendEmailVerification error:', verErr);
+              firebaseAuth.signOut().catch(() => {});
+              showEmailVerificationNotice(email);
+              switchAuthMode('signin');
+            });
         })
         .catch(err => {
           if (errorBox) {
@@ -2554,37 +2639,25 @@
     if (isFirebaseLive && firebaseAuth) {
       firebaseAuth.signInWithEmailAndPassword(email, password)
         .then(cred => {
+          // Check if email is verified
+          if (!cred.user.emailVerified) {
+            firebaseAuth.signOut().catch(() => {});
+            showEmailVerificationNotice(email, 'Your email is not verified yet. Please check your inbox and click the verification link before logging in.');
+            return;
+          }
           syncFirebaseUser(cred.user, 'Email / Password');
         })
         .catch(err => {
-          if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-            // Automatically register new email account
-            firebaseAuth.createUserWithEmailAndPassword(email, password)
-              .then(cred => {
-                if (name && cred.user) {
-                  cred.user.updateProfile({ displayName: name }).catch(() => {});
-                }
-                syncFirebaseUser(cred.user, 'Email Registration');
-              })
-              .catch(err2 => {
-                if (errorBox) {
-                  errorBox.innerText = err2.message;
-                  errorBox.style.display = 'block';
-                } else {
-                  showToast(err2.message, 'error');
-                }
-              });
+          if (errorBox) {
+            errorBox.innerText = err.message;
+            errorBox.style.display = 'block';
           } else {
-            if (errorBox) {
-              errorBox.innerText = err.message;
-              errorBox.style.display = 'block';
-            } else {
-              showToast(err.message, 'error');
-            }
+            showToast(err.message, 'error');
           }
         });
       return;
     }
+
 
     // Demo Mode fallback with actual entered email
     const customName = name || localStorage.getItem('pulsepm_custom_name_' + email.toLowerCase()) || email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -12103,6 +12176,7 @@
   window.App = {
     updateWorkspaceConnectivity,
     handleGmailLogin,
+    resendVerificationEmail,
     handlePhoneSendOtp,
     backToPhoneInput,
     handlePhoneVerifyOtp,
