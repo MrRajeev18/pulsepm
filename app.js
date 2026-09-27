@@ -9933,9 +9933,26 @@
   // PERSISTENT NOTIFICATION READ-STATE
   // The `read` flag on notification objects in state can be
   // lost when Firestore re-syncs overwrite state.notifications.
-  // We keep a separate localStorage Set of read notification IDs
+  // We keep a separate localStorage Set of read notification keys
   // keyed per user so the read state always survives login/reload.
   // ---------------------------------------------------------
+  function getNotificationUniqueKey(n) {
+    if (!n) return '';
+    if (n.statusSignature) return String(n.statusSignature);
+    if (n.invitationId) return 'inv_' + n.invitationId;
+    if (n.type === 'task_assigned' && n.projectId && n.taskId) {
+      return 'assign_' + n.projectId + '_' + n.taskId + '_' + (n.assignedAt || n.createdAt || '');
+    }
+    if (n.type === 'deadline_near' && n.projectId && n.taskId) {
+      return 'deadline_' + n.projectId + '_' + n.taskId;
+    }
+    if (n.projectId && n.taskId) {
+      return n.type + '_' + n.projectId + '_' + n.taskId + '_' + (n.createdAt || '');
+    }
+    if (n.id) return String(n.id);
+    return (n.type || 'notif') + '_' + (n.message || '').slice(0, 40) + '_' + (n.createdAt || '');
+  }
+
   function getReadNotifKey() {
     if (!state.currentUser) return null;
     const uid = state.currentUser.id || state.currentUser.uid || '';
@@ -9957,18 +9974,19 @@
     const key = getReadNotifKey();
     if (!key) return;
     try {
-      localStorage.setItem(key, JSON.stringify(Array.from(readSet).slice(-500)));
+      localStorage.setItem(key, JSON.stringify(Array.from(readSet).slice(-800)));
     } catch (e) {}
   }
 
   // Apply persisted read state to all notifications in memory.
-  // Call this after any sync that may have added fresh notification objects.
+  // Matches against both exact notif.id and content-derived stable key.
   function applyReadStateToNotifications() {
     if (!state.notifications || !state.notifications.length) return;
     const readSet = getReadNotifSet();
     if (!readSet.size) return;
     state.notifications.forEach(n => {
-      if (readSet.has(n.id)) {
+      const stableKey = getNotificationUniqueKey(n);
+      if ((n.id && readSet.has(n.id)) || (stableKey && readSet.has(stableKey))) {
         n.read = true;
       }
     });
@@ -10048,14 +10066,15 @@
     if (!notif) return;
     notif.read = true;
 
-    // Persist to the dedicated read-state store
+    // Persist to the dedicated read-state store (store both id and stable content key)
     const readSet = getReadNotifSet();
-    readSet.add(notifId);
+    if (notifId) readSet.add(notifId);
+    const stableKey = getNotificationUniqueKey(notif);
+    if (stableKey) readSet.add(stableKey);
     persistReadNotifSet(readSet);
 
     saveState();
     updateNotificationBell();
-
 
     // Navigate to relevant project and chat/tasks tab
     if (notif.projectId) {
@@ -10077,9 +10096,13 @@
     const mine = getMyNotifications();
     mine.forEach(n => { n.read = true; });
 
-    // Persist all IDs to the dedicated read-state store
+    // Persist all IDs and stable keys to the dedicated read-state store
     const readSet = getReadNotifSet();
-    mine.forEach(n => readSet.add(n.id));
+    mine.forEach(n => {
+      if (n.id) readSet.add(n.id);
+      const stableKey = getNotificationUniqueKey(n);
+      if (stableKey) readSet.add(stableKey);
+    });
     persistReadNotifSet(readSet);
 
     saveState();
@@ -10993,7 +11016,7 @@
               );
               if (!existing) {
                 state.notifications.unshift({
-                  id: 'notif_inv_' + (inv.id || Date.now()),
+                  id: 'notif_inv_' + (inv.id || (p.id + '_' + currentUid)),
                   type: 'project_invitation',
                   recipientId: currentUid,
                   recipientEmail: currentEmail,
@@ -11081,7 +11104,7 @@
         if (!existing) {
           const assigner = task.assignedByName || task.creatorName || 'A teammate';
           const notif = {
-            id: 'notif_task_assign_' + task.id + '_' + Date.now(),
+            id: 'notif_task_assign_' + task.id + '_' + String(task.assignedAt || task.createdAt || 'initial').replace(/[^a-zA-Z0-9]/g, '_'),
             type: 'task_assigned',
             recipientId: currentUid,
             recipientEmail: currentEmail,
@@ -11212,7 +11235,7 @@
               : `🔄 ${updatedByName} moved task "${task.title}" to ${statusLabel} in ${p.name}`);
 
           const notif = {
-            id: 'notif_status_' + task.id + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            id: 'notif_status_' + task.id + '_' + String(statusUpdatedAt || task.status || 'latest').replace(/[^a-zA-Z0-9]/g, '_'),
             type: notifType,
             statusSignature: statusSig,
             statusUpdatedAt: statusUpdatedAt,
