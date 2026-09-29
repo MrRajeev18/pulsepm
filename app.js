@@ -2614,20 +2614,58 @@
       return;
     }
 
+    const showExistingAccountPrompt = () => {
+      const msg = `An account with this email already exists. <button type="button" class="auth-inline-switch-btn" onclick="window.App.switchAuthMode('signin');" style="background:none; border:none; padding:0; color:var(--primary,#4f46e5); font-weight:700; text-decoration:underline; cursor:pointer; margin-left:4px;">Sign In</button>`;
+      if (errorBox) {
+        errorBox.innerHTML = msg;
+        errorBox.style.display = 'block';
+      } else {
+        showToast('An account with this email already exists. Please Sign In.', 'warning');
+      }
+    };
+
+    const showNoAccountPrompt = () => {
+      const msg = `No account found with this email. <button type="button" class="auth-inline-switch-btn" onclick="window.App.switchAuthMode('signup');" style="background:none; border:none; padding:0; color:var(--primary,#4f46e5); font-weight:700; text-decoration:underline; cursor:pointer; margin-left:4px;">Create an Account</button>`;
+      if (errorBox) {
+        errorBox.innerHTML = msg;
+        errorBox.style.display = 'block';
+      } else {
+        showToast('No account found with this email. Please Create an Account.', 'warning');
+      }
+    };
+
+    const submitBtn = document.getElementById('web-auth-submit-btn');
+
     if (currentAuthMode === 'signup' && isFirebaseLive && firebaseAuth) {
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.7';
+        submitBtn.innerText = 'Creating Account...';
+      }
+
+      // Create Account flow
       firebaseAuth.createUserWithEmailAndPassword(email, password)
         .then(cred => {
           if (name && cred.user) {
             cred.user.updateProfile({ displayName: name }).catch(() => {});
           }
-          // Send verification email via custom domain immediately
+          // Store user profile in Firestore so query checks can confirm existence
+          if (firebaseDb && cred.user) {
+            firebaseDb.collection('users').doc(cred.user.uid).set({
+              id: cred.user.uid,
+              uid: cred.user.uid,
+              name: name || email.split('@')[0],
+              email: email.toLowerCase(),
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true }).catch(() => {});
+          }
+          // Send verification email immediately (Strict verification gate)
           cred.user.sendEmailVerification()
             .then(() => {
-              // Sign out immediately (Strict Gate)
               firebaseAuth.signOut().catch(() => {});
               showEmailVerificationNotice(email);
               switchAuthMode('signin');
-              showToast('📩 Verification link sent to your email!', 'success');
+              showToast('📩 Verification link sent to your email! Please verify before logging in.', 'success');
             })
             .catch(verErr => {
               console.warn('sendEmailVerification error:', verErr);
@@ -2637,17 +2675,35 @@
             });
         })
         .catch(err => {
-          if (errorBox) {
-            errorBox.innerText = err.message;
-            errorBox.style.display = 'block';
+          if (err.code === 'auth/email-already-in-use') {
+            showExistingAccountPrompt();
           } else {
-            showToast(err.message, 'error');
+            if (errorBox) {
+              errorBox.innerText = err.message;
+              errorBox.style.display = 'block';
+            } else {
+              showToast(err.message, 'error');
+            }
+          }
+        })
+        .finally(() => {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
+            submitBtn.innerText = currentAuthMode === 'signup' ? 'Create Account & Verify' : 'Sign In to Workspace';
           }
         });
       return;
     }
 
     if (isFirebaseLive && firebaseAuth) {
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.7';
+        submitBtn.innerText = 'Signing In...';
+      }
+
+      // Sign In flow
       firebaseAuth.signInWithEmailAndPassword(email, password)
         .then(cred => {
           // Check if email is verified
@@ -2659,19 +2715,99 @@
           syncFirebaseUser(cred.user, 'Email / Password');
         })
         .catch(err => {
-          if (errorBox) {
-            errorBox.innerText = err.message;
-            errorBox.style.display = 'block';
+          if (err.code === 'auth/user-not-found') {
+            showNoAccountPrompt();
+          } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+            // Check Firestore users collection to distinguish non-existent user from wrong password
+            if (firebaseDb) {
+              firebaseDb.collection('users').where('email', '==', email.toLowerCase()).get()
+                .then(snap => {
+                  if (snap.empty) {
+                    showNoAccountPrompt();
+                  } else {
+                    if (errorBox) {
+                      errorBox.innerText = 'Incorrect password. Please try again.';
+                      errorBox.style.display = 'block';
+                    } else {
+                      showToast('Incorrect password. Please try again.', 'error');
+                    }
+                  }
+                })
+                .catch(() => {
+                  if (err.code === 'auth/wrong-password') {
+                    if (errorBox) {
+                      errorBox.innerText = 'Incorrect password. Please try again.';
+                      errorBox.style.display = 'block';
+                    }
+                  } else {
+                    showNoAccountPrompt();
+                  }
+                });
+            } else {
+              if (err.code === 'auth/wrong-password') {
+                if (errorBox) {
+                  errorBox.innerText = 'Incorrect password. Please try again.';
+                  errorBox.style.display = 'block';
+                }
+              } else {
+                showNoAccountPrompt();
+              }
+            }
           } else {
-            showToast(err.message, 'error');
+            if (errorBox) {
+              errorBox.innerText = err.message;
+              errorBox.style.display = 'block';
+            } else {
+              showToast(err.message, 'error');
+            }
+          }
+        })
+        .finally(() => {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
+            submitBtn.innerText = currentAuthMode === 'signup' ? 'Create Account & Verify' : 'Sign In to Workspace';
           }
         });
       return;
     }
 
+    // Demo Mode fallback with local persistence
+    const demoAccounts = JSON.parse(localStorage.getItem('pulsepm_demo_accounts') || '[]');
+    const existingDemoUser = demoAccounts.find(u => u.email.toLowerCase() === email.toLowerCase());
 
-    // Demo Mode fallback with actual entered email
-    const customName = name || localStorage.getItem('pulsepm_custom_name_' + email.toLowerCase()) || email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    if (currentAuthMode === 'signup') {
+      if (existingDemoUser) {
+        showExistingAccountPrompt();
+        return;
+      }
+      const customName = name || email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      demoAccounts.push({ email: email.toLowerCase(), name: customName, password: password });
+      localStorage.setItem('pulsepm_demo_accounts', JSON.stringify(demoAccounts));
+      showEmailVerificationNotice(email);
+      switchAuthMode('signin');
+      showToast('📩 Verification link sent to your email! Please verify before logging in.', 'success');
+      return;
+    }
+
+    if (currentAuthMode === 'signin') {
+      const isKnownEmail = existingDemoUser || email.toLowerCase().includes('alex') || email.toLowerCase() === 'alex.morgan@gmail.com';
+      if (!isKnownEmail && demoAccounts.length > 0) {
+        showNoAccountPrompt();
+        return;
+      }
+      if (existingDemoUser && existingDemoUser.password && existingDemoUser.password !== password) {
+        if (errorBox) {
+          errorBox.innerText = 'Incorrect password. Please try again.';
+          errorBox.style.display = 'block';
+        } else {
+          showToast('Incorrect password. Please try again.', 'error');
+        }
+        return;
+      }
+    }
+
+    const customName = name || (existingDemoUser ? existingDemoUser.name : '') || localStorage.getItem('pulsepm_custom_name_' + email.toLowerCase()) || email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     const avatar = computeAvatarInitials(customName);
     const demoUser = {
       id: 'usr_' + Date.now(),
